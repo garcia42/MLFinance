@@ -20,7 +20,7 @@ class OptionPricing:
     def european_put_option(self, exercise_price: float) -> np.ndarray:
         put_payoffs = np.maximum(exercise_price - self.stock_price_paths, 0)
         discounted_put_payoffs = put_payoffs * self.discount_factor
-        return discounted_put_payoffs
+        return discounted_put_payoffs 
 
     def asian_call_option(self, exercise_price: float, average_method: str = 'arithmetic') -> np.ndarray:
         if average_method == 'arithmetic':

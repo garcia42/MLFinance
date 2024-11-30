@@ -77,7 +77,7 @@ class FMLPipeline(Pipeline) :
             fit_params[self.steps[-1][0] + ' sample_weight'] = sample_weight
         return super(FMLPipeline, self).fit(X, y, **fit_params)
 
-def cross_val_score(
+def cross_val_score( 
         classifier: ClassifierMixin,
         X: pd.DataFrame,
         y: pd.Series,
@@ -114,6 +114,14 @@ def clf_hyper_fit(
         n_jobs : int = -1,
         pct_embargo : float = 0.0,
         **fit_params) :
+    '''
+    The clf_hyper_fit function is designed to tune hyperparameters of a machine learning classifier and, 
+    optionally, apply bagging to the model. This function uses either grid search or randomized search with
+    cross-validation to find the best combination of hyperparameters for the classifier and then, optionally,
+    wraps the tuned model in a bagging ensemble for added robustness. The function is specialized for financial
+    applications, particularly with features like Purged K-Fold Cross-Validation and embargo periods to prevent 
+    look-ahead bias, which are common issues in financial time series data.
+    '''
     if set(label.values) == {0,1} : scoring = 'f1'
     else : scoring = 'neg_log_loss'
 

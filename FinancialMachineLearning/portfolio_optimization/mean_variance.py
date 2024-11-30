@@ -13,7 +13,7 @@ class MeanVarianceOptimisation:
         self.calculate_expected_returns = calculate_expected_returns
         self.returns_estimator = ReturnEstimation()
         self.weight_bounds = None
-
+ 
     def allocate(self,
                  asset_names,
                  asset_prices=None,

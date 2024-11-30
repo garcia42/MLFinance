@@ -14,7 +14,7 @@ def chow_type_adf(series: pd.Series, molecule: list) -> pd.Series:
         x = series_lag.values
         coefs, coef_vars = beta(x.reshape(-1, 1), y)
         b_estimate, b_var = coefs[0], coef_vars[0][0]
-        dfc_series[index] = b_estimate / (b_var ** 0.5)
+        dfc_series[index] = b_estimate / (b_var ** 0.5) 
     return dfc_series
 
 def chow_type_stat(series: pd.Series, min_length: int = 20, num_threads: int = 8) -> pd.Series:

@@ -9,7 +9,7 @@ def binHR(stop_loss, profit_taking, freq, t_sharpe_ratio):
     p = (-b + (b ** 2 - 4 * a * c) ** 0.5) / (2.0 * a)
     return p
 
-def get_grid_precision(
+def get_grid_precision( 
         stop_loss: np.array,
         profit_taking: float,
         observation: np.array,

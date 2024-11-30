@@ -4,7 +4,7 @@ import scipy.stats as ss
 from scipy.stats import norm
 from scipy import stats as scipy_stats
 
-def skew_to_alpha(skew):
+def skew_to_alpha(skew): 
     d = (np.pi / 2 * ((abs(skew) ** (2 / 3)) / (abs(skew) ** (2 / 3) + ((4 - np.pi) / 2) ** (2 / 3)))) ** 0.5
     a = (d / ((1 - d ** 2) ** .5))
     return a * np.sign(skew)

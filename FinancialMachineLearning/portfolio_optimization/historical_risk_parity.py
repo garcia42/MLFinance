@@ -20,7 +20,7 @@ class HierarchicalRiskParity:
         distances = np.sqrt((1 - correlation).round(5) / 2)
         clusters = linkage(squareform(distances.values), method=method)
         return distances, clusters
-
+ 
     def _quasi_diagnalization(self, num_assets, curr_index):
         if curr_index < num_assets:
             return [curr_index]

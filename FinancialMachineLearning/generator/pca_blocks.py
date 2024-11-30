@@ -14,7 +14,7 @@ def get_covariance_sub(
 
     ar0 = rng.normal(size=(nObs, 1))
     ar0 = np.repeat(ar0, nCols, axis=1)
-    ar0 += rng.normal(scale=sigma, size=ar0.shape)
+    ar0 += rng.normal(scale=sigma, size=ar0.shape) 
     ar0 = np.cov(ar0, rowvar=False)
     return ar0
 

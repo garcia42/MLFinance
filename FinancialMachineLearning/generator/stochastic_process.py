@@ -13,7 +13,7 @@ class MonteCarloSimulation:
         self.T = maturity
         self.dividend_yield = dividend_yield
         self.nObs = nObs
-        self.slices = slices
+        self.slices = slices 
         self.dt = self.T / self.slices
         self.mu = interest_rate
         self.sigma = sigma

@@ -12,7 +12,7 @@ def get_values_diff(test_type, series, index, ind):
     return values_diff
 def get_s_n_for_t(series: pd.Series, test_type: str, molecule: list) -> pd.DataFrame:
     s_n_t_series = pd.DataFrame(index = molecule, columns = ['stat', 'critical_value'])
-    for index in molecule:
+    for index in molecule: 
 
         series_t = series.loc[:index]
         squared_diff = series_t.diff().dropna() ** 2

@@ -12,7 +12,7 @@ def _get_number_of_backtest_paths(n_train_splits: int, n_test_splits: int) -> fl
     return int(comb(n_train_splits, n_train_splits - n_test_splits) * n_test_splits / n_train_splits)
 
 
-class CombinatorialPurgedKFold(KFold):
+class CombinatorialPurgedKFold(KFold): 
     def __init__(
             self,
             n_splits: int = 3,

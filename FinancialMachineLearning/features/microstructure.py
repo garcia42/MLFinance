@@ -451,7 +451,7 @@ def pin_likelihood(params, buy_orders, sell_orders):
 def estimate_pin(buy_orders, sell_orders, alpha=0.05, delta=0.5, mu=0.5, epsilon_b=0.5, epsilon_s=0.5):
     initial_guess = [alpha, delta, mu, epsilon_b, epsilon_s]
     bounds = [(0.01, 0.99), (0.01, 0.99), (0.01, None), (0.01, None), (0.01, None)]
-
+ 
     options = {'maxiter': 1000, 'disp': False}
 
     result = minimize(pin_likelihood, initial_guess, args=(buy_orders, sell_orders), bounds=bounds, options=options, method='L-BFGS-B')

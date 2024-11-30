@@ -12,7 +12,7 @@ def probability_weighted_accuracy(y_true, y_pred):
               Target scores, can either be probability estimates of the positive class,
               confidence values, or non-thresholded measure of decisions.
 
-    Returns:
+    Returns: 
     - pwa: float
            Probability Weighted Accuracy.
     """

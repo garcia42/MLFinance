@@ -1,0 +1,36 @@
+Arguments: 
+  /opt/homebrew/Cellar/node/22.7.0/bin/node /Users/garciaj42/.yarn/bin/yarn.js add snscrape
+
+PATH: 
+  /Users/garciaj42/.yarn/bin:/Users/garciaj42/.config/yarn/global/node_modules/.bin:/opt/homebrew/bin:/opt/homebrew/sbin:/opt/homebrew/anaconda3/bin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/opt/ImageMagick/bin:/Users/garciaj42/flutter/bin
+
+Yarn version: 
+  1.22.18
+
+Node version: 
+  22.7.0
+
+Platform: 
+  darwin arm64
+
+Trace: 
+  Error: https://registry.yarnpkg.com/snscrape: Not found
+      at params.callback [as _callback] (/Users/garciaj42/.yarn/lib/cli.js:66138:18)
+      at self.callback (/Users/garciaj42/.yarn/lib/cli.js:140883:22)
+      at Request.emit (node:events:520:28)
+      at Request.<anonymous> (/Users/garciaj42/.yarn/lib/cli.js:141855:10)
+      at Request.emit (node:events:520:28)
+      at IncomingMessage.<anonymous> (/Users/garciaj42/.yarn/lib/cli.js:141777:12)
+      at Object.onceWrapper (node:events:634:28)
+      at IncomingMessage.emit (node:events:532:35)
+      at endReadableNT (node:internal/streams/readable:1696:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:90:21)
+
+npm manifest: 
+  No manifest
+
+yarn manifest: 
+  No manifest
+
+Lockfile: 
+  No lockfile

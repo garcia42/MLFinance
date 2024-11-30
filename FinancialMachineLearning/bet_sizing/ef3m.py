@@ -6,7 +6,7 @@ from scipy.special import comb
 from scipy.stats import gaussian_kde
 
 
-class M2N:
+class M2N: 
 
     def __init__(self, moments, epsilon=10**-5, factor=5, n_runs=1, variant=1, max_iter=100_000, num_workers=-1):
         self.epsilon = epsilon

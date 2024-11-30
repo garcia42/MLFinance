@@ -12,7 +12,7 @@ class FractionalDifferentiatedFeatures :
         return w
 
     @staticmethod
-    def getWeights_FFD(d, thres):
+    def getWeights_FFD(d, thres): 
         w = [1.]
         k = 1
         while abs(w[-1]) >= thres:

@@ -131,7 +131,7 @@ class ImbalanceBarFeatures :
                                         verbose = self.verbose, to_csv = self.to_csv, output_path = self.output_path)
         return imbalance_bars, pd.DataFrame(bars.bars_thresholds)
 
-class RunBarFeatures :
+class RunBarFeatures : 
     def __init__(self, file_path_or_df: Union[str, Iterable[str], pd.DataFrame],
                  num_prev_bars: int = 3,
                  exp_num_ticks_constraints: List[float] = None,
