@@ -407,11 +407,15 @@ class IntegratedMarketCollector:
     async def run_data_collection(self, duration_hours: float = 6.5):
         """Run the complete data collection process"""
         try:
-            # Connect to IB
-            self.ib.connect(host='127.0.0.1', port=7497, clientId=1)
-            
-            # Create ES contract
-            contract = self.create_es_contract()
+            try:
+                # Connect to IB
+                self.ib.connect(host='127.0.0.1', port=7497, clientId=1)
+                
+                # Create ES contract
+                contract = self.create_es_contract()
+            except Exception as e:
+                contract = None
+                print("Failed to connect to IB Gateway", e)
 
             storage = FeatureStorage('./Data/financial_features.parquet')
     
