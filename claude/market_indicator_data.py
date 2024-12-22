@@ -74,9 +74,13 @@ def fetch_market_indicators(start_date: datetime, end_date=None) -> pd.DataFrame
     # Combine all series into a single DataFrame
     combined_df = pd.DataFrame(data_dict)
     
+    combined_df = fill_missing_data(combined_df)
+    
+    combined_df.index = combined_df.index.tz_localize(None)
+    
     return combined_df
 
-def fill_missing_data(df):
+def fill_missing_data(df) -> pd.DataFrame:
     """
     Fill missing data in financial time series using appropriate methods
     for different types of instruments.

@@ -150,6 +150,8 @@ class FredDataCollector:
             features = features.interpolate(method='time', axis=0)
             features = features.fillna(method='bfill', axis=0)
             
+            features.index = features.index.tz_localize(None)
+            
             return features
             
         except Exception as e:
