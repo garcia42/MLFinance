@@ -413,7 +413,7 @@ class ContinuousFuturesContract:
             run_bar_df = run_bar.ema_dollar_run_bar()[0]
             print("\nSample of run bars:")
             print(run_bar_df.head())
-            run_bar_df = run_bar_df.set_index(pd.to_datetime(run_bar_df['date_time'])).tz_localize('UTC')
+            run_bar_df = run_bar_df.set_index(pd.to_datetime(run_bar_df['date_time']))
             return run_bar_df
 
         except Exception as e:

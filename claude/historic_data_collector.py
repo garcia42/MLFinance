@@ -147,13 +147,15 @@ class IntegratedHistoricalCollector:
 
             # Collect macro data
             macro_data: pd.DataFrame = fc.get_historical_fred_data()
-            # Ensure FRED data has no timezone info
-            macro_data.index = macro_data.index.tz_localize(None)
-            print(macro_data)
             # Add macro features
             if not macro_data.empty:
                 macro_features = macro_data.reindex(aligned_data.index, method='ffill')
                 aligned_data = pd.concat([aligned_data, macro_features], axis=1)
+
+            # Fetch the data
+            market_indicators_data = fetch_market_indicators(datetime.now() -  timedelta(days=self.lookback_days))
+            market_indicators_data = market_indicators_data.reindex(aligned_data.index, method='ffill')
+            aligned_data = pd.concat([aligned_data, market_indicators_data], axis=1)
                 
             return aligned_data
             
