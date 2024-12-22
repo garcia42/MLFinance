@@ -16,7 +16,7 @@ class IndicatorMixin:
         high: pd.Series, low: pd.Series, prev_close: pd.Series
     ) -> pd.Series:
         tr1 = high - low
-        tr2 = (high - prev_close).abs()
+        tr2 = (high - prev_close).abs() 
         tr3 = (low - prev_close).abs()
         true_range = pd.DataFrame(data={"tr1": tr1, "tr2": tr2, "tr3": tr3}).max(axis=1)
         return true_range

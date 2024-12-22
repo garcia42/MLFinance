@@ -23,7 +23,7 @@ class RiskMetrics:
 
         value_at_risk = self.calculate_value_at_risk(returns, confidence_level)
         expected_shortfall = np.nanmean(returns[returns < value_at_risk])
-        return expected_shortfall
+        return expected_shortfall 
 
     @staticmethod
     def calculate_conditional_drawdown_risk(returns, confidence_level=0.05):

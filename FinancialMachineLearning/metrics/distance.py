@@ -46,7 +46,7 @@ class DistanceDataFrame(pd.DataFrame):
             h_xy = hx + hy - i_xy
             v_xy /= h_xy
         return v_xy
-
+ 
     @staticmethod
     def _mutual_info(x, y, norm=False):
         b_xy = DistanceDataFrame.num_bins(len(x), np.corrcoef(x, y)[0, 1])

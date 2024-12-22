@@ -26,7 +26,7 @@ class Denoise:
         corr0 = np.dot(eVecL, eValL).dot(eVecL.T)
         corr1 = np.dot(eVecR, eValR).dot(eVecR.T)
         corr2 = corr0 + alpha * corr1 + (1 - alpha) * np.diag(np.diag(corr1))
-        return corr2
+        return corr2 
 
 def denoise_constant_residual_eigenvalue(eVal, eVec, nFacts):
     """

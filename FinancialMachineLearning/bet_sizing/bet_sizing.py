@@ -7,7 +7,7 @@ from FinancialMachineLearning.bet_sizing.ef3m import M2N, raw_moment, most_likel
 from FinancialMachineLearning.utils.multiprocess import mp_pandas_obj
 import warnings
 
-def get_gaussian_betsize(probs, num_classes=2, eps=1e-4):
+def get_gaussian_betsize(probs, num_classes=2, eps=1e-4): 
     max_prob = 1 - eps
     min_prob = eps
     if isinstance(probs, numbers.Number):

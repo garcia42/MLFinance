@@ -12,7 +12,7 @@ class MicrostructuralFeaturesGenerator:
         if isinstance(trades_input, str):
             self.generator_object = pd.read_csv(trades_input, chunksize=batch_size, parse_dates=[0])
             first_row = pd.read_csv(trades_input, nrows=1)
-            self._assert_csv(first_row)
+            self._assert_csv(first_row) 
         elif isinstance(trades_input, pd.DataFrame):
             self.generator_object = crop_data_frame_in_batches(trades_input, batch_size)
         else:

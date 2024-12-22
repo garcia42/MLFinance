@@ -23,3 +23,4 @@ class ReturnEstimation:
         asset_returns = asset_prices.pct_change()
         asset_returns = asset_returns.dropna(how='all')
         return asset_returns
+    

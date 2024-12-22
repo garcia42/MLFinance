@@ -30,7 +30,7 @@ def add_vertical_barrier(t_events, close, num_days = 0, num_hours = 0, num_minut
     vertical_barriers = pd.Series(data=nearest_timestamp, index=filtered_events)
     return vertical_barriers
 def get_events(close, t_events, pt_sl, target, min_ret, num_threads, vertical_barrier_times = False,
-               side_prediction=None):
+               side_prediction=None) -> pd.DataFrame:
     target = target.loc[t_events]
     target = target[target > min_ret]
     if vertical_barrier_times is False:

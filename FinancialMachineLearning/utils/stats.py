@@ -41,7 +41,7 @@ def pdf_error(var, eVal, q, bWidth, pts = 1000, verbose = False) :
     var = var[0]
     pdf0 = marchenko_pastur_prob_distribution(var, q, pts)  # theoretical pdf
     pdf1 = fit_kde(eVal, bWidth, x=pdf0.index.values)  # empirical pdf
-    sse = np.sum((pdf1 - pdf0) ** 2)
+    sse = np.sum((pdf1 - pdf0) ** 2) 
     if verbose : print("sse:" + str(sse))
     return sse
 

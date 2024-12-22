@@ -16,4 +16,4 @@ def ewma(arr_in, window):
         ewma_old = ewma_old * (1 - alpha) + arr_in[i]
         ewma_arr[i] = ewma_old / weight
 
-    return ewma_arr
+    return ewma_arr 

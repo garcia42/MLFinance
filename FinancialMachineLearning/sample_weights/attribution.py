@@ -56,4 +56,4 @@ def weights_by_time_decay(triple_barrier_events, close_series, num_threads=5, de
     const = 1 - slope * decay_w.iloc[-1]
     decay_w = const + slope * decay_w
     decay_w[decay_w < 0] = 0
-    return decay_w
+    return decay_w, av_uniqueness

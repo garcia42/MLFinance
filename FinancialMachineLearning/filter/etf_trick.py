@@ -8,7 +8,7 @@ class etfTrick :
         self.prev_allocs_change = False
         self.prev_h = None
         self.data_dict = {}
-        self.iter_dict = None
+        self.iter_dict = None 
         self.init_fields = None
 
         if isinstance(alloc, str):

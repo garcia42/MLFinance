@@ -21,7 +21,7 @@ class CriticalLineAlgorithm:
         self.efficient_frontier_means = None
         self.efficient_frontier_sigma = None
         self.returns_estimator = ReturnEstimation()
-
+ 
     @staticmethod
     def _infnone(number):
         return float("-inf") if number is None else number

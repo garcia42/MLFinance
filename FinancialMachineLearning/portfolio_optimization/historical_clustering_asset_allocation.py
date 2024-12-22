@@ -20,7 +20,7 @@ class HierarchicalClusteringAssetAllocation:
         inertia = [np.mean(pairwise_distances(asset_returns[:, labels == label])) for label in unique_labels]
         inertia = np.log(np.sum(inertia))
         return inertia
-
+ 
     def _get_optimal_number_of_clusters(self,
                                         correlation,
                                         asset_returns,

@@ -23,4 +23,4 @@ def trend_labeling(molecule, close : pd.Series, span : list) :
         out.loc[dt0, ['t1','tVal','bin']] = df0.index[-1], df0[dt1], np.sign(df0[dt1])
     out['t1'] = pd.to_datetime(out['t1'])
     out['bin'] = pd.to_numeric(out['bin'], downcast = 'signed')
-    return out.dropna(subset = ['bin'])
+    return out.dropna(subset = ['bin']) 

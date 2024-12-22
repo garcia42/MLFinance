@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 from FinancialMachineLearning.barsampling.base_bars import BaseBars
 
-class StandardBars(BaseBars):
+class StandardBars(BaseBars): 
     def __init__(self, metric: str,
                  threshold: int = 50000,
                  batch_size: int = 20000000):

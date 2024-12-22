@@ -5,7 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.linear_model import LinearRegression
 
-class AbstractModelFingerprint(ABC):
+class AbstractModelFingerprint(ABC): 
     def __init__(self):
         self.linear_effect = None
         self.non_linear_effect = None

@@ -12,7 +12,7 @@ def supremum_adf_test(X: pd.DataFrame, y: pd.DataFrame, min_length: int) -> floa
             b_mean_, b_std_ = b_mean_[0, 0], b_std_[0, 0] ** 0.5
             all_adf = b_mean_ / b_std_
             if all_adf > bsadf:
-                bsadf = all_adf
+                bsadf = all_adf 
     return bsadf
 
 def set_sadf_data(series: pd.Series, model: str, lags: Union[int, list],

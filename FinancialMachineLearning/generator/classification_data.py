@@ -12,7 +12,7 @@ def get_test_data(
     from sklearn.datasets import make_classification
 
     np.random.seed(random_state)
-
+ 
     trnsX, cont = make_classification(
         n_samples=n_samples,
         n_features=n_features,

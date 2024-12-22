@@ -7,7 +7,7 @@ import statsmodels.api as sm
 from numba import njit, prange
 
 @njit
-def simulate_single_run(phi, forecast, sigma, seed, rPT, rSLm, maxHP):
+def simulate_single_run(phi, forecast, sigma, seed, rPT, rSLm, maxHP): 
     p, hp = seed, 0
     while True:
         p = (1 - phi) * forecast + phi * p + sigma * np.random.normal()

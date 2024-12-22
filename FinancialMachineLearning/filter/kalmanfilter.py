@@ -10,7 +10,7 @@ class LocalLinearTrend(sm.tsa.statespace.MLEModel):
             endog, k_states = k_states, k_posdef = k_posdef,
             initialization = "approximate_diffuse",
             loglikelihood_burn = k_states
-        )
+        ) 
         self.ssm['design'] = np.array([1, 0])
         self.ssm['transition'] = np.array([[1, 1],
                                            [0, 1]])

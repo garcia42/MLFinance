@@ -8,5 +8,5 @@ class BarFeature:
         self.name = name
         self.function = function
 
-    def compute(self, tick_df):
+    def compute(self, tick_df): 
         return self.function(tick_df)
