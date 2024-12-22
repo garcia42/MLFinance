@@ -364,7 +364,7 @@ class ContinuousFuturesContract:
         
         return df
     
-    async def get_continuous_contract(self, underlying="ES", exchange="CME", lookback_days=365) -> pd.DataFrame:
+    async def get_continuous_contract(self, underlying="ES", exchange="CME", lookback_days=365, data_dir="Data/ES_1min") -> pd.DataFrame:
         """
         Generate continuous contract data with OHLCV data
         
@@ -386,7 +386,7 @@ class ContinuousFuturesContract:
             # Load data
             raw_data = self.load_es_contract_data(
                 contract_files=contract_files,
-                data_dir="Data/ES_1min",
+                data_dir=data_dir,
                 start_date=start_date,
                 end_date=datetime.now()
             )
