@@ -115,56 +115,6 @@ class FredDataCollector:
             self.logger.error(f"Error fetching {series_config.series_id}: {e}")
             return None
 
-    def generate_ml_features(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Generate ML features with proper time series handling"""
-        features = df.copy()
-        
-        # Ensure index is sorted by date
-        features = features.sort_index()
-        
-        for col in df.columns:
-            config = self.FRED_SERIES.get(col)
-            if not config:
-                continue
-                
-            freq_map = {'d': 1, 'w': 5, 'm': 21, 'q': 63}
-            base_period = freq_map.get(config.frequency, 1)
-            
-            if config.frequency in ['q', 'm']:
-                # Calculate PCT_CHG before interpolation
-                features[f'{col}_PCT_CHG'] = features[col].pct_change()
-                
-                # Then interpolate
-                filled = features[col].ffill()
-                features[col] = filled.interpolate(method='linear')
-            
-            # Rolling features using adjusted periods
-            for period in config.lookback_periods:
-                window = period * base_period
-                
-                # Use original (non-interpolated) data for longer-term features
-                features[f'{col}_PCT_CHG_{period}'] = df[col].pct_change(periods=window)
-                
-                roll_std = features[col].pct_change().rolling(
-                    window=window,
-                    min_periods=max(2, window//2)
-                ).std()
-                features[f'{col}_VOL_{period}'] = roll_std
-                
-                # Z-score with error checking
-                roll_mean = features[col].rolling(window=window, min_periods=2).mean()
-                roll_std = features[col].rolling(window=window, min_periods=2).std()
-                roll_std = roll_std.replace(0, roll_std.median())  # Replace zeros with median
-                features[f'{col}_ZSCORE_{period}'] = (features[col] - roll_mean) / roll_std
-                
-                # Trend calculation with proper scaling
-                features[f'{col}_TREND_{period}'] = (
-                    (features[col] - features[col].shift(window)) / 
-                    (window * base_period * features[col].shift(window))  # Normalize by level
-                )
-        
-        return features
-
     def get_historical_fred_data(self) -> pd.DataFrame:
         """
         Get FRED data processed for ML use
@@ -189,22 +139,16 @@ class FredDataCollector:
             # Create base dataframe
             df = pd.DataFrame(series_data)
             
-            print("FRED FEATURES before pre-process")
-            print(df)
-            
             # Clean features
             features = df.replace([np.inf, -np.inf], np.nan)
-            
-            # Generate features
-            # TODO(See if this is even useful)
-            # features = self.generate_ml_features(features)
-
             
             # Remove lookback period to prevent lookahead bias
             features = features.loc[start_date:]
             
-            print("FRED FEATURES")
-            print(features)
+            features = features.copy()  # Create explicit copy
+            features = features.fillna(method='ffill', axis=0)
+            features = features.interpolate(method='time', axis=0)
+            features = features.fillna(method='bfill', axis=0)
             
             return features
             

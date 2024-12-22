@@ -23,9 +23,7 @@ def fetch_market_indicators(start_date: datetime, end_date=None) -> pd.DataFrame
         # Original symbols
         'GC=F': 'Gold',
         'JPY=X': 'USD/JPY',
-        '^FVX': '5-Year Treasury',
         '^GSPC': 'S&P 500',
-        '^TYX': '30-Year Treasury',
         '^VIX': 'VIX',
         
         # New additions
@@ -34,8 +32,6 @@ def fetch_market_indicators(start_date: datetime, end_date=None) -> pd.DataFrame
         '^GDAXI': 'DAX (Germany)',
         'EUR=X': 'EUR/USD',
         'CL=F': 'Crude Oil',
-        '^TNX': '10-Year Treasury Yield',
-        '^IRX': '13-Week Treasury Yield',
         'SPY': 'S&P 500 ETF',
         '^NYHILO': 'NYSE New High/Low Index',
         
@@ -79,6 +75,58 @@ def fetch_market_indicators(start_date: datetime, end_date=None) -> pd.DataFrame
     combined_df = pd.DataFrame(data_dict)
     
     return combined_df
+
+def fill_missing_data(df):
+    """
+    Fill missing data in financial time series using appropriate methods
+    for different types of instruments.
+    
+    Parameters:
+    df (pd.DataFrame): DataFrame with financial instruments and timestamp column 'Date'
+    
+    Returns:
+    pd.DataFrame: Filled DataFrame
+    """
+    # Create a copy to avoid modifying the original
+    df_filled = df.copy()
+    
+    # Convert timestamp to datetime
+    df_filled['datetime'] = pd.to_datetime(df_filled.index, unit='ms')
+    df_filled = df_filled.set_index('datetime')
+    
+    # Group columns by type
+    market_indices = ['^GSPC', '^FTSE', '^GDAXI', '^AXJO']
+    currencies = ['JPY=X', 'EUR=X']
+    commodities = ['GC=F', 'CL=F', 'HG=F']
+    etfs = ['SPY', 'TLT', 'LQD']
+    
+    # Fill market indices during their trading hours
+    for idx in market_indices:
+        df_filled[idx] = df_filled[idx].fillna(method='ffill', limit=8)
+    
+    # Interpolate currencies with time-weighted values
+    for curr in currencies:
+        df_filled[curr] = df_filled[curr].interpolate(method='time', limit=4)
+    
+    # Forward fill commodities but reset at day boundaries
+    for comm in commodities:
+        df_filled[comm] = df_filled.groupby(df_filled.index.date)[comm].fillna(method='ffill')
+        df_filled[comm] = df_filled[comm].fillna(method='ffill')
+
+    # Forward fill ETFs similar to their underlying indices
+    for etf in etfs:
+        df_filled[etf] = df_filled[etf].fillna(method='ffill', limit=8)
+    
+    # Special handling for VIX - use ffill with shorter window
+    # Risks having stale VIX data into the future but that's the tradeoff
+    df_filled['^VIX'] = df_filled['^VIX'].fillna(method='ffill')
+    
+    df_filled = df_filled.fillna(method='bfill', axis=0)
+    
+    # Keep the original Date column
+    df_filled['Date'] = df.index
+    
+    return df_filled
 
 def generate_summary_stats(df):
     """
