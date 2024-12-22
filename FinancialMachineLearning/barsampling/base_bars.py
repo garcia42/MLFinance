@@ -9,7 +9,7 @@ def _crop_data_frame_in_batches(df: pd.DataFrame, chunksize: int) -> list:
     for _, chunk in df.groupby(np.arange(len(df)) // chunksize):
         generator_object.append(chunk)
     return generator_object
-class BaseBars(ABC):
+class BaseBars(ABC): 
     def __init__(self, metric: str, batch_size: int = 2e7):
         self.metric = metric
         self.batch_size = batch_size

@@ -17,7 +17,7 @@ def average_uniqueness(label_endtime, num_conc_events, molecule):
         wght.loc[t_in] = (1. / num_conc_events.loc[t_in:t_out]).mean()
     return wght
 def average_uniqueness_triple_barrier(triple_barrier_events, close_series, num_threads):
-    out = pd.DataFrame()
+    out = pd.DataFrame() 
     num_conc_events = mp_pandas_obj(concurrent_events, ('molecule', triple_barrier_events.index), num_threads,
                                     close_series_index=close_series.index, label_endtime=triple_barrier_events['t1'])
     num_conc_events = num_conc_events.loc[~num_conc_events.index.duplicated(keep='last')]

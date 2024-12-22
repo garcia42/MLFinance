@@ -13,7 +13,7 @@ class TailSetLabels:
 
     A classification model is then fit using these labels to determine which stocks to buy and sell in a long / short
     portfolio.
-    """
+    """ 
 
     def __init__(self, prices, window, mean_abs_dev):
         """

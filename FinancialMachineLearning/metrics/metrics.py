@@ -10,7 +10,7 @@ def getExpectedMaxSR(nTrials, meanSR, stdSR):
     sr0 = (1 - emc) * norm.ppf(1 - 1. / nTrials) + emc * norm.ppf(1 - (nTrials * np.e) ** -1)
     sr0 = meanSR + stdSR * sr0
     return sr0
-
+ 
 def getDistMaxSR(nSims, nTrials, stdSR, meanSR):
     # Monte carlo of max{SR} on nTrials, from nSims simulations
     rng = np.random.RandomState()

@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import scipy.stats as ss
 from sklearn.metrics import mutual_info_score
-class discreteEntropy :
+class discreteEntropy : 
     def __init__(self, message : str, word_length : int = None) :
         self._message = message
         self._word_length = word_length

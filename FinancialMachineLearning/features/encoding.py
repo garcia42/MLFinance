@@ -4,7 +4,7 @@ def encode_tick_rule_array(tick_rule_array: list) -> str:
     message = ''
     for element in tick_rule_array:
         if element == 1:
-            message += 'a'
+            message += 'a' 
         elif element == -1:
             message += 'b'
         elif element == 0:

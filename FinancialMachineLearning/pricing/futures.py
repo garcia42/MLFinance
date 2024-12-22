@@ -20,4 +20,4 @@ class FutureForwardPricing:
         """
         S0 = self.stock_paths[0, 0]  # Initial stock price
         forward_price = S0 * np.exp((self.interest_rate - self.dividend_yield) * self.maturity)
-        return forward_price
+        return forward_price 

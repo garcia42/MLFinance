@@ -4,7 +4,7 @@ import scipy.stats as ss
 from scipy.stats import norm
 from scipy import stats as scipy_stats
 
-def skew_to_alpha(skew):
+def skew_to_alpha(skew): 
     d = (np.pi / 2 * ((abs(skew) ** (2 / 3)) / (abs(skew) ** (2 / 3) + ((4 - np.pi) / 2) ** (2 / 3)))) ** 0.5
     a = (d / ((1 - d ** 2) ** .5))
     return a * np.sign(skew)
@@ -356,12 +356,26 @@ def estimated_sharpe_ratio_stdev(returns=None, *, n=None, skew=None, kurtosis=No
 
 
 def probabilistic_sharpe_ratio(observed_sr: float, benchmark_sr: float,
-                               number_of_returns: int, skewness_of_returns: float = 0,
-                               kurtosis_of_returns: float = 3) -> float:
-    probab_sr = ss.norm.cdf(((observed_sr - benchmark_sr) * (number_of_returns - 1) ** (1 / 2)) / \
-                            (1 - skewness_of_returns * observed_sr +
-                             (kurtosis_of_returns - 1) / 4 * observed_sr ** 2) ** (1 / 2))
-
+                             number_of_returns: int, skewness_of_returns: float = 0,
+                             kurtosis_of_returns: float = 3) -> float:
+    
+    # Calculate components separately
+    numerator = (observed_sr - benchmark_sr) * (number_of_returns - 1) ** (1/2)
+    denominator = (1 - skewness_of_returns * observed_sr + (kurtosis_of_returns - 1)/4 * observed_sr**2) ** (1/2)
+    
+    # Check for invalid values
+    if np.isnan(numerator) or np.isnan(denominator):
+        print(f"Warning: Invalid values in PSR calculation")
+        print(f"Numerator: {numerator}")
+        print(f"Denominator: {denominator}")
+        return np.nan
+        
+    # Check for zero denominator
+    if abs(denominator) < 1e-10:
+        print(f"Warning: Near-zero denominator in PSR calculation")
+        return np.nan
+        
+    probab_sr = ss.norm.cdf(numerator / denominator)
     return probab_sr
 
 def deflated_sharpe_ratio(observed_sr: float, sr_estimates: list,

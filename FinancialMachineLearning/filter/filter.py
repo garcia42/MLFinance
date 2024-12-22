@@ -10,7 +10,7 @@ def cusum_filter(raw_time_series, threshold, time_stamps=True):
         pos = s_pos + diff.loc[i]
         neg = s_neg + diff.loc[i]
         s_pos = max(0, pos)
-        s_neg = min(0, neg)
+        s_neg = min(0, neg) 
         if s_neg < -threshold:
             s_neg = 0
             t_events.append(i)

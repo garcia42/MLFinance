@@ -24,7 +24,7 @@ def mp_pandas_obj(func, pd_obj, num_threads=24, mp_batches=1, lin_mols=True, **k
     if lin_mols:
         parts = lin_parts(len(pd_obj[1]), num_threads * mp_batches)
     else:
-        parts = nested_parts(len(pd_obj[1]), num_threads * mp_batches)
+        parts = nested_parts(len(pd_obj[1]), num_threads * mp_batches) 
     jobs = []
     for i in range(1, len(parts)):
         job = {pd_obj[0]: pd_obj[1][parts[i - 1]:parts[i]], 'func': func}

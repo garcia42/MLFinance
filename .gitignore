@@ -1,0 +1,19 @@
+# Big boi data
+claude/Data/ES_tick/ES_processed_final.csv
+
+# VS Code
+.vscode
+
+# Python caches and Vim swap files
+**.py[a-z]
+**.sw[a-z]
+
+# Mac OS
+.DS_Store
+
+# Local environment setups
+.env
+
+# Other random crap
+yarn-error.log
+=*

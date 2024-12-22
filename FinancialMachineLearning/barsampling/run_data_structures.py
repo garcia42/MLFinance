@@ -4,7 +4,7 @@ import pandas as pd
 from FinancialMachineLearning.barsampling.base_bars import BaseRunBars
 from FinancialMachineLearning.utils.fast_ewma import ewma
 
-class EMARunBars(BaseRunBars):
+class EMARunBars(BaseRunBars): 
     def __init__(self, metric: str,
                  num_prev_bars: int,
                  expected_imbalance_window: int,

@@ -13,7 +13,7 @@ class DynamicZsocre():
         self.avgFilter[self.lag - 1] = np.mean(self.y[0:self.lag]).tolist()
         self.stdFilter[self.lag - 1] = np.std(self.y[0:self.lag]).tolist()
 
-    def signal(self, new_value):
+    def signal(self, new_value): 
         self.y.append(new_value)
         i = len(self.y) - 1
         self.length = len(self.y)

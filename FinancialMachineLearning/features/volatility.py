@@ -2,6 +2,23 @@ import numpy as np
 import pandas as pd
 import arch
 
+def intraday_volatility(close: pd.Series, lookback: int = 100) -> pd.Series:
+    # Calculate returns at the same frequency as your data
+    returns = close.pct_change()
+    # Calculate rolling volatility
+    vol = returns.ewm(span=lookback).std()
+    return vol
+
+def daily_volatility_intraday(close: pd.Series, lookback: int = 100) -> pd.Series:
+    # Resample to daily first
+    daily_close = close.resample('D').last()
+    # Calculate daily returns
+    daily_returns = daily_close.pct_change()
+    # Calculate volatility
+    vol = daily_returns.ewm(span=lookback).std()
+    # Forward fill back to intraday frequency
+    return vol.reindex(close.index, method='ffill')
+
 def daily_volatility(close: pd.Series, lookback: int = 100) -> pd.Series:
     df0 = close.index.searchsorted(close.index - pd.Timedelta(days=1))
     df0 = df0[df0 > 0]
@@ -54,8 +71,8 @@ def garman_klass_volatility(series, window=21):
     """
     Function to calculate Garman-Klass volatility
     """
-    a = (np.log(series['High'] / series['Low']) ** 2).rolling(window=window).mean() * 0.5
-    b = (2 * np.log(2) - 1) * (np.log(series['Close'] / series['Open']) ** 2).rolling(window=window).mean()
+    a = (np.log(series['high'] / series['low']) ** 2).rolling(window=window).mean() * 0.5
+    b = (2 * np.log(2) - 1) * (np.log(series['close'] / series['open']) ** 2).rolling(window=window).mean()
     return np.sqrt(a - b)
 
 
@@ -63,19 +80,19 @@ def rogers_satchell_volatility(series, window=21):
     """
     Function to calculate Rogers-Satchell volatility
     """
-    a = (np.log(series['High'] / series['Close']) * np.log(series['High'] / series['Open'])).rolling(
+    a = (np.log(series['high'] / series['close']) * np.log(series['high'] / series['open'])).rolling(
         window=window).mean()
-    b = (np.log(series['Low'] / series['Close']) * np.log(series['Low'] / series['Open'])).rolling(window=window).mean()
+    b = (np.log(series['low'] / series['close']) * np.log(series['low'] / series['open'])).rolling(window=window).mean()
     return np.sqrt(a + b)
 
 def yang_zhang_volatility(series, window=21):
     """
     Function to calculate Yang-Zhang volatility
     """
-    a = (np.log(series['Open'] / series['Close'].shift(1))).rolling(window=window).mean()
-    vol_open = ((np.log(series['Open'] / series['Close'].shift(1)) - a) ** 2).rolling(window=window).mean()
-    b = (np.log(series['Close'] / series['Open'])).rolling(window=window).mean()
-    vol_close = ((np.log(series['Close'] / series['Open']) - b) ** 2).rolling(window=window).mean()
+    a = (np.log(series['open'] / series['close'].shift(1))).rolling(window=window).mean()
+    vol_open = ((np.log(series['Open'] / series['close'].shift(1)) - a) ** 2).rolling(window=window).mean()
+    b = (np.log(series['close'] / series['Open'])).rolling(window=window).mean()
+    vol_close = ((np.log(series['close'] / series['open']) - b) ** 2).rolling(window=window).mean()
     vol_rogers_satchell = rogers_satchell_volatility(series, window)
     k = 0.34 / (1.34 + (window + 1) / (window - 1))
 
@@ -87,22 +104,22 @@ def yang_zhang_volatility(series, window=21):
 
 def intrinsic_entropy(series, total_volume, window=21):
     h_co = - (
-            np.log(series['Open'] / series['Close'].shift(1)) *
-            (series['Volume'] / total_volume) *
-            np.log(series['Volume'].shift(1) / total_volume)
+            np.log(series['open'] / series['close'].shift(1)) *
+            (series['volume'] / total_volume) *
+            np.log(series['volume'].shift(1) / total_volume)
     ).rolling(window=window).mean()
 
     h_oc = - (
-            np.log(series['Close'] / series['Open']) *
-            (series['Volume'] / total_volume) *
-            np.log(series['Volume'] / total_volume)
+            np.log(series['close'] / series['open']) *
+            (series['volume'] / total_volume) *
+            np.log(series['volume'] / total_volume)
     ).rolling(window=window).mean()
 
     h_ohlc = - (
             (
-                    (np.log(series['Open'] / series['High']) * np.log(series['High'] / series['Close'])) +
-                    (np.log(series['Low'] / series['Open']) * np.log(series['Low'] / series['Close']))
-            ) * (series['Volume'] / total_volume) * np.log(series['Volume'] / total_volume)
+                    (np.log(series['open'] / series['high']) * np.log(series['high'] / series['close'])) +
+                    (np.log(series['low'] / series['open']) * np.log(series['low'] / series['close']))
+            ) * (series['volume'] / total_volume) * np.log(series['volume'] / total_volume)
     ).rolling(window=window).mean()
 
     k = 0.34 / (1.34 + (window + 1) / (window - 1))
