@@ -1,9 +1,13 @@
-import pandas as pd
-import numpy as np
-from typing import List, Dict, Tuple, Optional
-from dataclasses import dataclass
+# Standard library modules
 import logging
 from collections import deque
+from typing import List, Optional
+
+# Third-party modules
+import numpy as np
+import pandas as pd
+from dataclasses import dataclass
+
 
 @dataclass
 class RunBar:

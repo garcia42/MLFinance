@@ -1,21 +1,24 @@
-from typing import Dict, List, Optional, Tuple, Union, Any
-from datetime import datetime, timedelta
-import pandas as pd
-import numpy as np
-import pytz
+# Standard library modules
 import logging
-from dataclasses import dataclass
-import praw
-import fredapi
-from ib_insync import Contract, BarData, IB
-from fred_collector import create_fred_collector
 import warnings
-import time
-from continuous_futures_contract import ContinuousFuturesContract
-from market_indicator_data import fetch_market_indicators, generate_summary_stats
-from feature_storage import FeatureStorage
+from datetime import datetime
+from typing import Dict, List, Union, Any
+
+# Third-party modules
+import fredapi
+import pandas as pd
+import praw
+import pytz
+from dataclasses import dataclass
+from ib_insync import Contract, BarData, IB
+
+# Claude modules
+from claude.continuous_futures_contract import ContinuousFuturesContract
+from claude.fred_collector import create_fred_collector
+
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
+
 
 @dataclass
 class HistoricalSentiment:

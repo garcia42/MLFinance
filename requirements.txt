@@ -1,0 +1,24 @@
+# Main code dependencies
+#
+arch ~= 7.2
+fredapi ~= 0.5.2
+ib-insync ~= 0.9.86
+matplotlib ~= 3.10
+pandas ~= 2.2
+praw ~= 7.8
+pyarrow ~= 18.1
+scikit-learn ~= 1.6
+seaborn ~= 0.13.2
+shap ~= 0.46.0
+statsmodels ~= 0.14.4
+tqdm ~= 4.67
+tweepy ~= 4.14
+
+# Development dependencies
+#
+black ~= 24.10
+ipywidgets ~= 8.1
+jupyterlab ~= 4.3
+mypy ~= 1.14
+pipdeptree
+pytest ~= 8.3

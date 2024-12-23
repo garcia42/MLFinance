@@ -1,30 +1,29 @@
-import sys
-import os
-import pickle
+# Standard library modules
 from datetime import datetime
+from typing import Any, Tuple
 
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-
-from feature_storage import FeatureStorage
-
+# Third-party modules
 import pandas as pd
-from FinancialMachineLearning.labeling.labeling import meta_labeling, get_events, add_vertical_barrier
-from FinancialMachineLearning.features.volatility import daily_volatility, daily_volatility_intraday
-from sklearn.ensemble import RandomForestClassifier
-from FinancialMachineLearning.sample_weights.bootstrapping import *
-from sklearn.ensemble import BaggingClassifier
+from dataclasses import dataclass
+from sklearn.ensemble import BaggingClassifier, RandomForestClassifier
 from sklearn.preprocessing import RobustScaler
 
+# FinancialMachineLearning modules
+from FinancialMachineLearning.cross_validation.combinatorial import CombinatorialPurgedKFold
+from FinancialMachineLearning.features.volatility import daily_volatility_intraday
+from FinancialMachineLearning.labeling.labeling import meta_labeling, get_events, add_vertical_barrier
+from FinancialMachineLearning.sample_weights.attribution import *
+from FinancialMachineLearning.sample_weights.bootstrapping import *
 from FinancialMachineLearning.sample_weights.concurrency import *
 from FinancialMachineLearning.utils.multiprocess import *
-from FinancialMachineLearning.sample_weights.attribution import *
-from FinancialMachineLearning.cross_validation.combinatorial import CombinatorialPurgedKFold
-from feature_analysis import FeatureAnalysis
-from dataclasses import dataclass
 
-from typing import Any, Tuple, Union
+# Claude modules
+from claude.feature_analysis import FeatureAnalysis
+from claude.feature_storage import FeatureStorage
+
 
 REGENERATE_CACHE=True
+
 
 @dataclass
 class Model:
