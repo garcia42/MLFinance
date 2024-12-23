@@ -1,11 +1,14 @@
-import time
-from typing import Dict, List, Optional, Tuple, Union, Any, Mapping
-from datetime import datetime, timedelta
-import pandas as pd
-import numpy as np
-from fredapi import Fred
+# Standard library modules
 import logging
+from datetime import datetime, timedelta
+from typing import Dict, List, Optional, Mapping
+
+# Third-party modules
+import numpy as np
+import pandas as pd
 from dataclasses import dataclass
+from fredapi import Fred
+
 
 @dataclass
 class FredSeriesConfig:

@@ -1,23 +1,21 @@
-import sys
-import os
-
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-
-from pathlib import Path
+# Standard library modules
+import asyncio
 import logging
+from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Union, List
 
-from ib_insync import *
+# Third-party modules
 import pandas as pd
-import numpy as np
-from datetime import datetime, timedelta, timezone
-import asyncio
-from contract_util import get_local_symbol
+from ib_insync import *
 
-from FinancialMachineLearning.filter.etf_trick import etfTrick
+# FinancialMachineLearning modules
 from FinancialMachineLearning.barsampling.core import RunBarFeatures
+from FinancialMachineLearning.filter.etf_trick import etfTrick
 
-from feature_storage import FeatureStorage
+# Claude modules
+from claude.contract_util import get_local_symbol
+
 
 class ContinuousFuturesContract:
     def __init__(self, ib: IB):

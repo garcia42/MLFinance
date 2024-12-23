@@ -1,5 +1,9 @@
-from ib_insync import util, Future
+# Standard library modules
 from datetime import datetime
+
+# Third-party modules
+from ib_insync import Future
+
 
 def get_next_quarterly_expiry():
     """Get the next quarterly expiration month."""

@@ -1,27 +1,24 @@
-import sys
-import os
-import pickle
+# Standard library modules
 from datetime import datetime
 
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-
-import shap
-import pandas as pd
+# Third-party modules
 import matplotlib.pyplot as plt
 import numpy as np
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.inspection import permutation_importance
-from sklearn.metrics import accuracy_score
-from typing import Dict, Tuple, List
-from FinancialMachineLearning.cross_validation.combinatorial import CombinatorialPurgedKFold
-from FinancialMachineLearning.feature_importance.orthogonal import get_orthogonal_features, get_pca_rank_weighted_kendall_tau
-from sklearn.ensemble import BaggingClassifier
-from FinancialMachineLearning.feature_importance.importance import mean_decrease_impurity, mean_decrease_accuracy, plot_feature_importance, cross_val_score, single_feature_importance, clustered_mean_decrease_accuracy, clustered_mean_decrease_importance_detailed, clustered_mean_decrease_accuracy
-from FinancialMachineLearning.machine_learning.clustering import clusterKMeansBase
-import matplotlib.cm
+import pandas as pd
 import seaborn as sns
-import matplotlib.pyplot as plt
-from feature_storage import FeatureStorage
+import shap
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score
+
+# FinancialMachineLearning modules
+from FinancialMachineLearning.cross_validation.combinatorial import CombinatorialPurgedKFold
+from FinancialMachineLearning.feature_importance.importance import mean_decrease_impurity, mean_decrease_accuracy, plot_feature_importance, cross_val_score, single_feature_importance, clustered_mean_decrease_accuracy, clustered_mean_decrease_importance_detailed, clustered_mean_decrease_accuracy
+from FinancialMachineLearning.feature_importance.orthogonal import get_orthogonal_features
+from FinancialMachineLearning.machine_learning.clustering import clusterKMeansBase
+
+# Claude modules
+from claude.feature_storage import FeatureStorage
+
 
 class FeatureAnalysis:
     def __init__(self, X: pd.DataFrame, y: pd.Series, cv_folds: CombinatorialPurgedKFold, combined_weights: pd.Series):

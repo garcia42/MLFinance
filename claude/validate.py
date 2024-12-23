@@ -1,26 +1,20 @@
-import sys
-import os
-from datetime import datetime
-import pandas as pd
-
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-
+# Standard library modules
 from typing import Tuple, Union
+
+# Third-party modules
 import numpy as np
-
-from train_model import Model, build_model
-
-from sklearn.ensemble import BaggingClassifier
-from sklearn.metrics import accuracy_score
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.ensemble import BaggingClassifier
+import pandas as pd
 from scipy.stats import skew, kurtosis
+from sklearn.ensemble import BaggingClassifier, RandomForestClassifier
+from sklearn.metrics import accuracy_score
 
-from FinancialMachineLearning.cross_validation.combinatorial import CombinatorialPurgedKFold
+# FinancialMachineLearning modules
 from FinancialMachineLearning.backtest.backtest_statistics import probabilistic_sharpe_ratio
-from FinancialMachineLearning.cross_validation.cross_validation import cross_val_score
+from FinancialMachineLearning.cross_validation.combinatorial import CombinatorialPurgedKFold
 
-from sklearn.metrics import log_loss
+# Claude modules
+from claude.train_model import Model, build_model
+
 
 def _split_data(X: Union[pd.DataFrame, pd.Series], split_date: str = '2023-01-01') -> tuple[Union[pd.DataFrame, pd.Series], Union[pd.DataFrame, pd.Series]]:
     """

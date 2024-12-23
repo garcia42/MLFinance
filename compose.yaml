@@ -1,0 +1,13 @@
+services:
+  jupyter-lab:
+    build:
+      context: .
+    ports:
+      - "8888:8888"
+    volumes:
+      - '.:/src:delegated'
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8888"]
+      interval: 10s
+      timeout: 5s
+      retries: 3

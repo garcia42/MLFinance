@@ -1,32 +1,37 @@
-
-from ib_insync import *
-import pandas as pd
-import numpy as np
-import praw
-import tweepy
-import fredapi
-from datetime import datetime, timedelta
-import logging
-from typing import Dict, List, Optional, Tuple
+# Standard library modules
 import asyncio
-import pytz
-import json
-import nest_asyncio
-from collections import defaultdict
+import logging
 import time
+from datetime import datetime
+from typing import Dict, List, Tuple
+
+# Third-party modules
+import fredapi
+import nest_asyncio
+import numpy as np
+import pandas as pd
+import praw
+import pytz
+import tweepy
 from dataclasses import dataclass
-from ratelimit import limits, sleep_and_retry
-from runbar import RunBarsProcessor
-from historic_data_collector import create_data_collector
-from fred_collector import FredDataCollector
-from contract_util import get_next_quarterly_expiry
-from feature_storage import FeatureStorage
-from train_model import label_and_analyze
-from validate import label_and_cross_validate, calculate_psr, build_model
+from ib_insync import *
+
+# FinancialMachineLearning modules
 from FinancialMachineLearning.features.fracdiff import FractionalDifferentiatedFeatures
+
+# Claude modules
+from claude.contract_util import get_next_quarterly_expiry
+from claude.feature_storage import FeatureStorage
+from claude.fred_collector import FredDataCollector
+from claude.historic_data_collector import create_data_collector
+from claude.runbar import RunBarsProcessor
+from claude.train_model import label_and_analyze
+from claude.validate import label_and_cross_validate, calculate_psr, build_model
+
 
 # Apply nest_asyncio to allow nested event loops
 nest_asyncio.apply()
+
 
 @dataclass
 class OrderFlowMetrics:
@@ -407,15 +412,11 @@ class IntegratedMarketCollector:
     async def run_data_collection(self, duration_hours: float = 6.5):
         """Run the complete data collection process"""
         try:
-            try:
-                # Connect to IB
-                self.ib.connect(host='127.0.0.1', port=7497, clientId=1)
-                
-                # Create ES contract
-                contract = self.create_es_contract()
-            except Exception as e:
-                contract = None
-                print("Failed to connect to IB Gateway", e)
+            # Connect to IB
+            self.ib.connect(host='127.0.0.1', port=7497, clientId=1)
+            
+            # Create ES contract
+            contract = self.create_es_contract()
 
             storage = FeatureStorage('./Data/financial_features.parquet')
     
