@@ -38,16 +38,16 @@ class Model:
     fit_side_model: BaggingClassifier
     side_model: BaggingClassifier
 
-def build_model(features: pd.DataFrame, use_cache = REGENERATE_CACHE) -> Model:
-    tfs = FeatureStorage('./Data/tbe_before_analyze.parquet')
-    fs = FeatureStorage('./Data/X_before_analyze.parquet')
-    fsyd = FeatureStorage('./Data/y_side_before_analyze.parquet')
-    fsyz = FeatureStorage('./Data/y_size_before_analyze.parquet')
-    fsw = FeatureStorage('./Data/weights_before_analyze.parquet')
-    fsu = FeatureStorage('./Data/uniq_before_analysis.parquet')
+def build_model(features: pd.DataFrame, use_cache = REGENERATE_CACHE, path='./Data') -> Model:
+    tfs = FeatureStorage(path + '/tbe_before_analyze.parquet')
+    fs = FeatureStorage(path + '/X_before_analyze.parquet')
+    fsyd = FeatureStorage(path + '/y_side_before_analyze.parquet')
+    fsyz = FeatureStorage(path + '/y_size_before_analyze.parquet')
+    fsw = FeatureStorage(path + '/weights_before_analyze.parquet')
+    fsu = FeatureStorage(path + '/uniq_before_analysis.parquet')
     
     if not use_cache:
-        X, triple_barrier_events, y_side, y_size = _label(features=features.copy())
+        X, triple_barrier_events, y_side, y_size = _label(features=features.copy(), path=path)
         combined_weights, avg_uniq = _weights(features=features, triple_barrier_events=triple_barrier_events)
         X_clean, y_side, y_size, combined_weights = _clean_features(X_df=X, combined_weights=combined_weights, y_side=y_side, y_size=y_size)
         
@@ -140,10 +140,6 @@ def _weights(features: pd.DataFrame, triple_barrier_events: Any) -> Tuple[pd.Ser
     # Ensure weights sum to 1
     combined_weights = combined_weights / combined_weights.sum()
     
-    # Handle NaN values in avg_uniqueness
-    if avg_unique is not None:
-        avg_unique = avg_unique.fillna(avg_unique.mean())
-    
     # Create a Series with the same index as features
     combined_weights = pd.Series(combined_weights, index=return_weights.index)
     
@@ -151,6 +147,8 @@ def _weights(features: pd.DataFrame, triple_barrier_events: Any) -> Tuple[pd.Ser
     # This is crucial - we only want weights for samples that exist in our feature matrix
     combined_weights = combined_weights.reindex(features.index)
     combined_weights = combined_weights.fillna(combined_weights.mean())
+    avg_unique = avg_unique.reindex(features.index)
+    avg_unique = avg_unique.fillna(avg_unique.mean())
     
     print("\nWeight alignment check:")
     print("Features shape:", features.shape)
@@ -159,9 +157,8 @@ def _weights(features: pd.DataFrame, triple_barrier_events: Any) -> Tuple[pd.Ser
     
     return combined_weights, avg_unique
 
-def _label(features: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
-    
-    fs = FeatureStorage('./Data/triple_barrier_events.parquet')
+def _label(features: pd.DataFrame, path="./Data") -> Tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
+    fs = FeatureStorage(path + '/triple_barrier_events.parquet')
     
     if REGENERATE_CACHE:
         vertical_barrier = add_vertical_barrier(
@@ -223,7 +220,7 @@ def _label(features: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame, pd.Serie
     features['side'] = triple_barrier_events['side'].copy()
     features['label'] = meta_labels['bin'].copy()
     
-    features.drop(['open','high','low','close','volume', 'date_time'], axis = 1, inplace = True)
+    features.drop(['open','high','low','close','volume', 'date_time', 'Date'], axis = 1, inplace = True)
     
     features.dropna(inplace = True)
     matrix = features[features['side'] != 0]
