@@ -1,22 +1,14 @@
-FROM python:3.12
+# Use Python 3.9 base image
+FROM python:3.9-slim
 
-COPY requirements.txt .
-RUN apt update && \
-    apt upgrade --no-install-recommends && \
-    apt install --no-install-recommends \
-        less \
-        && \
-    pip install --no-cache-dir -r requirements.txt && \
-    rm -rf /var/cache/apt/archives /var/lib/apt/lists/*
+# Set working directory
+WORKDIR /app
 
-# jupyter server -y \
-#     --ip 0.0.0.0 \
-#     --allow-root \
-#     --no-browser \
-#     --PasswordIdentityProvider.password_required False \
-#     --PasswordIdentityProvider.hashed_password '' \
-#     --IdentityProvider.token '' \
-#     --ServerApp.allow_origin '*' \
-#     --ServerApp.disable_check_xsrf True
-WORKDIR /src
-CMD ["jupyter", "server", "-y", "--allow-root", "--no-browser", "--ip", "0.0.0.0", "--PasswordIdentityProvider.password_required", "False", "--PasswordIdentityProvider.hashed_password", "", "--IdentityProvider.token", "", "--ServerApp.allow_origin", "*", "--ServerApp.disable_check_xsrf", "True"]
+# Copy the entire project structure
+COPY . .
+
+# Install dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Run claude.py
+CMD ["python", "claude/claude.py"]

@@ -3,90 +3,198 @@ import pandas as pd
 from datetime import datetime, timedelta
 import requests
 
-def fetch_market_indicators(start_date: datetime, end_date=None) -> pd.DataFrame:
+FUTURES  = {
+    # Equity Index Futures
+    'ES=F': 'E-mini S&P 500',
+    'NQ=F': 'E-mini NASDAQ 100',
+    'RTY=F': 'E-mini Russell 2000',
+    'YM=F': 'E-mini Dow',
+
+    # Currency Futures
+    '6E=F': 'Euro FX',
+    '6J=F': 'Japanese Yen',
+    '6B=F': 'British Pound',
+    '6A=F': 'Australian Dollar',
+    '6C=F': 'Canadian Dollar',
+    '6M=F': 'Mexican Peso',
+    '6N=F': 'New Zealand Dollar',
+    '6S=F': 'Swiss Franc',
+
+    # Metal Futures
+    'GC=F': 'Gold',
+    'SI=F': 'Silver',
+    'HG=F': 'Copper',
+    'PL=F': 'Platinum',
+    'PA=F': 'Palladium',
+
+    # Energy Futures
+    'CL=F': 'Crude Oil WTI',
+    'BZ=F': 'Brent Crude',
+    'NG=F': 'Natural Gas',
+    'HO=F': 'Heating Oil',
+    'RB=F': 'RBOB Gasoline',
+
+    # Interest Rate Futures
+    'ZN=F': '10-Year T-Note',
+    'ZT=F': '2-Year T-Note',
+    'ZF=F': '5-Year T-Note',
+    'ZB=F': '30-Year T-Bond',
+}
+
+SPY_100_TOP_50 = {
+    # Technology
+    'AAPL': 'Apple Inc.',
+    'MSFT': 'Microsoft Corporation',
+    'NVDA': 'NVIDIA Corporation',
+    'GOOGL': 'Alphabet Inc. Class A',
+    'GOOG': 'Alphabet Inc. Class C',
+    'META': 'Meta Platforms Inc.',
+    'AVGO': 'Broadcom Inc.',
+    'ADBE': 'Adobe Inc.',
+    'CRM': 'Salesforce Inc.',
+    'CSCO': 'Cisco Systems Inc.',
+    'ACN': 'Accenture plc',
+    'ORCL': 'Oracle Corporation',
+    
+    # Financial Services
+    'BRK.B': 'Berkshire Hathaway Inc.',
+    'JPM': 'JPMorgan Chase & Co.',
+    'V': 'Visa Inc.',
+    'MA': 'Mastercard Incorporated',
+    'BAC': 'Bank of America Corp.',
+    'WFC': 'Wells Fargo & Company',
+    'MS': 'Morgan Stanley',
+    'GS': 'Goldman Sachs Group Inc.',
+    
+    # Healthcare
+    'UNH': 'UnitedHealth Group Inc.',
+    'JNJ': 'Johnson & Johnson',
+    'LLY': 'Eli Lilly and Company',
+    'ABBV': 'AbbVie Inc.',
+    'MRK': 'Merck & Co. Inc.',
+    'PFE': 'Pfizer Inc.',
+    'TMO': 'Thermo Fisher Scientific Inc.',
+    'ABT': 'Abbott Laboratories',
+    
+    # Consumer
+    'AMZN': 'Amazon.com Inc.',
+    'WMT': 'Walmart Inc.',
+    'PG': 'Procter & Gamble Company',
+    'COST': 'Costco Wholesale Corporation',
+    'KO': 'The Coca-Cola Company',
+    'PEP': 'PepsiCo Inc.',
+    'MCD': "McDonald's Corporation",
+    'NKE': 'Nike Inc.',
+    
+    # Industrial
+    'XOM': 'Exxon Mobil Corporation',
+    'CVX': 'Chevron Corporation',
+    'UPS': 'United Parcel Service Inc.',
+    'BA': 'The Boeing Company',
+    'CAT': 'Caterpillar Inc.',
+    'GE': 'General Electric Company',
+    'HON': 'Honeywell International Inc.',
+    'UNP': 'Union Pacific Corporation',
+    
+    # Telecommunications
+    'T': 'AT&T Inc.',
+    'VZ': 'Verizon Communications Inc.',
+    
+    # Entertainment
+    'DIS': 'The Walt Disney Company',
+    'NFLX': 'Netflix Inc.',
+    
+    # Others
+    'BLK': 'BlackRock Inc.',
+    'AXP': 'American Express Company',
+    'AMD': 'Advanced Micro Devices Inc.'
+}
+
+def fetch_market_indicators(start_date: datetime, end_date=None) -> tuple[pd.DataFrame, int]:
     """
-    Fetch market relationship indicators from Yahoo Finance.
+    Fetch market relationship indicators from Yahoo Finance in format ready for multi_indicators.
+    Handles missing values using forward fill.
     
     Parameters:
     start_date (str): Start date in 'YYYY-MM-DD' format
     end_date (str): End date in 'YYYY-MM-DD' format, defaults to today if None
     
     Returns:
-    pandas.DataFrame: DataFrame containing market indicators
+    tuple[pd.DataFrame, int]: 
+        - DataFrame containing market data in long format (Date, Market, Open, High, Low, Close)
+        - Number of markets
     """
-    # If no end date specified, use today
     if end_date is None:
         end_date = datetime.today().strftime('%Y-%m-%d')
     
-    # Define the symbols to fetch
-    symbols = {
-        # Original symbols
-        'GC=F': 'Gold',
-        'JPY=X': 'USD/JPY',
-        '^GSPC': 'S&P 500',
-        '^VIX': 'VIX',
-        
-        # New additions
-        '^AXJO': 'ASX 200 (Australia)',
-        '^FTSE': 'FTSE 100 (UK)',
-        '^GDAXI': 'DAX (Germany)',
-        'EUR=X': 'EUR/USD',
-        'CL=F': 'Crude Oil',
-        'SPY': 'S&P 500 ETF',
-        '^NYHILO': 'NYSE New High/Low Index',
-        
-        # Additional bond ETFs
-        'TLT': '20+ Year Treasury Bond ETF',
-        # 'IEF': '7-10 Year Treasury Bond ETF',
-        # 'SHY': '1-3 Year Treasury Bond ETF',
-        'LQD': 'Investment Grade Corporate Bond ETF',
-        # 'HYG': 'High Yield Corporate Bond ETF',
-        
-        # Additional currency pairs
-        # 'GBPUSD=X': 'GBP/USD',
-        # 'AUDUSD=X': 'AUD/USD',
-        # 'CADUSD=X': 'CAD/USD',
-        
-        # Additional commodities
-        # 'SI=F': 'Silver',
-        'HG=F': 'Copper',
-        # 'NG=F': 'Natural Gas'
-    }
+    symbols = SPY_100_TOP_50
+
+    # Dictionary to store DataFrames for each symbol
+    symbol_dfs = {}
     
-    # Initialize an empty dictionary to store the data
-    data_dict = {}
-    
-    # Fetch data for each symbol
+    # First pass: Collect all unique dates
+    all_dates = set()
     for symbol, description in symbols.items():
         try:
             ticker = yf.Ticker(symbol)
             df = ticker.history(start=start_date, end=end_date)
             
             if not df.empty:
-                # We'll use the adjusted closing price
-                data_dict[symbol] = df['Close']
-                print(f"Successfully fetched data for {symbols[symbol]} ({symbol})")
+                symbol_dfs[symbol] = df
+                all_dates.update(df.index)
+                print(f"Successfully fetched data for {description} ({symbol})")
             else:
-                print(f"No data available for {symbols[symbol]} ({symbol})")
+                print(f"No data available for {description} ({symbol})")
         except Exception as e:
             print(f"Error fetching data for {symbol}: {str(e)}")
     
-    # Combine all series into a single DataFrame
-    combined_df = pd.DataFrame(data_dict)
+    # Convert to sorted list
+    all_dates = sorted(list(all_dates))
     
-    combined_df = fill_missing_data(combined_df)
-    
-    combined_df.index = combined_df.index.tz_localize(None)
-    
-    return combined_df
+    # In the second pass where rows are created, add a minimum threshold
+    MIN_VALUE = 1e-60
 
-def fill_missing_data(df) -> pd.DataFrame:
+    # Second pass: Create rows with forward fill
+    rows = []
+    for symbol in symbols.keys():
+        if symbol in symbol_dfs:
+            df = symbol_dfs[symbol]
+            
+            # Reindex to include all dates and forward fill
+            df = df.reindex(all_dates).ffill()
+            
+            # Convert each row to the required format
+            for date, row in df.iterrows():
+                rows.append({
+                    'Date': date,
+                    'Market': symbol,
+                    'Open': max(row['Open'], MIN_VALUE),
+                    'High': max(row['High'], MIN_VALUE),
+                    'Low': max(row['Low'], MIN_VALUE),
+                    'Close': max(row['Close'], MIN_VALUE),
+                })
+    
+    # Create DataFrame and sort to ensure consistent order
+    result_df = pd.DataFrame(rows)
+    result_df = result_df.sort_values(['Date', 'Market']).reset_index(drop=True)
+    
+    n_markets = len(symbols)
+    
+    # Verify all markets have the same number of rows
+    market_counts = result_df.groupby('Market').size()
+    if len(set(market_counts)) > 1:
+        print("Warning: Not all markets have the same number of rows after forward fill:")
+        print(market_counts)
+
+    return result_df, n_markets
+
+def fill_missing_data(df: pd.DataFrame) -> pd.DataFrame:
     """
     Fill missing data in financial time series using appropriate methods
     for different types of instruments.
     
     Parameters:
-    df (pd.DataFrame): DataFrame with financial instruments and timestamp column 'Date'
+    df (pd.DataFrame): DataFrame in long format with columns: Date, Market, Open, High, Low, Close
     
     Returns:
     pd.DataFrame: Filled DataFrame
@@ -94,41 +202,46 @@ def fill_missing_data(df) -> pd.DataFrame:
     # Create a copy to avoid modifying the original
     df_filled = df.copy()
     
-    # Convert timestamp to datetime
-    df_filled['datetime'] = pd.to_datetime(df_filled.index, unit='ms')
-    df_filled = df_filled.set_index('datetime')
+    # Ensure Date is datetime
+    df_filled['Date'] = pd.to_datetime(df_filled['Date'])
     
-    # Group columns by type
+    # Define instrument groups
     market_indices = ['^GSPC', '^FTSE', '^GDAXI', '^AXJO']
-    currencies = ['JPY=X', 'EUR=X']
-    commodities = ['GC=F', 'CL=F', 'HG=F']
+    currencies = ['JPY=X', 'EUR=X', 'GBPUSD=X', 'AUDUSD=X', 'CADUSD=X']
+    futures = ['GC=F', 'CL=F', 'HG=F', 'SI=F', 'NG=F']  # Futures contracts
     etfs = ['SPY', 'TLT', 'LQD']
     
-    # Fill market indices during their trading hours
-    for idx in market_indices:
-        df_filled[idx] = df_filled[idx].fillna(method='ffill', limit=8)
+    # Process each market type separately
+    for market in df_filled['Market'].unique():
+        mask = df_filled['Market'] == market
+        
+        if market in futures:
+            # Forward fill futures data without limit
+            for col in ['Open', 'High', 'Low', 'Close']:
+                df_filled.loc[mask, col] = df_filled.loc[mask, col].fillna(method='ffill')
+        
+        elif market in market_indices:
+            # Fill market indices during their trading hours
+            for col in ['Open', 'High', 'Low', 'Close']:
+                df_filled.loc[mask, col] = df_filled.loc[mask, col].fillna(method='ffill', limit=8)
+        
+        elif market in currencies:
+            # Interpolate currencies with time-weighted values
+            for col in ['Open', 'High', 'Low', 'Close']:
+                df_filled.loc[mask, col] = df_filled.loc[mask, col].interpolate(method='linear', limit=4)
+        
+        elif market in etfs:
+            # Forward fill ETFs similar to their underlying indices
+            for col in ['Open', 'High', 'Low', 'Close']:
+                df_filled.loc[mask, col] = df_filled.loc[mask, col].fillna(method='ffill', limit=8)
+        
+        elif market == '^VIX':
+            # Special handling for VIX - use ffill with shorter window
+            for col in ['Open', 'High', 'Low', 'Close']:
+                df_filled.loc[mask, col] = df_filled.loc[mask, col].fillna(method='ffill')
     
-    # Interpolate currencies with time-weighted values
-    for curr in currencies:
-        df_filled[curr] = df_filled[curr].interpolate(method='time', limit=4)
-    
-    # Forward fill commodities but reset at day boundaries
-    for comm in commodities:
-        df_filled[comm] = df_filled.groupby(df_filled.index.date)[comm].fillna(method='ffill')
-        df_filled[comm] = df_filled[comm].fillna(method='ffill')
-
-    # Forward fill ETFs similar to their underlying indices
-    for etf in etfs:
-        df_filled[etf] = df_filled[etf].fillna(method='ffill', limit=8)
-    
-    # Special handling for VIX - use ffill with shorter window
-    # Risks having stale VIX data into the future but that's the tradeoff
-    df_filled['^VIX'] = df_filled['^VIX'].fillna(method='ffill')
-    
-    df_filled = df_filled.fillna(method='bfill', axis=0)
-    
-    # Keep the original Date column
-    df_filled['Date'] = df.index
+    # Final backfill pass for any remaining missing values
+    df_filled = df_filled.fillna(method='bfill')
     
     return df_filled
 
@@ -137,20 +250,48 @@ def generate_summary_stats(df):
     Generate summary statistics for the dataset.
     
     Parameters:
-    df (pandas.DataFrame): Input DataFrame
+    df (pandas.DataFrame): Input DataFrame with columns Date, Market, Open, High, Low, Close
     
     Returns:
-    pandas.DataFrame: Summary statistics
+    dict: Dictionary of DataFrames containing summary statistics by market
     """
-    stats = pd.DataFrame({
-        'start_date': df.index.min(),
-        'end_date': df.index.max(),
-        'data_points': df.count(),
-        'missing_pct': (df.isna().sum() / len(df) * 100).round(2),
-        'mean': df.mean().round(4),
-        'std': df.std().round(4),
-        'min': df.min().round(4),
-        'max': df.max().round(4)
-    }).T
+    # Ensure Date is datetime
+    df['Date'] = pd.to_datetime(df['Date'], utc=True)
     
-    return stats
+    # Group by Market
+    grouped = df.groupby('Market')
+    
+    stats_dict = {}
+    
+    # Numeric columns to analyze
+    numeric_cols = ['Open', 'High', 'Low', 'Close']
+    
+    for market, group in grouped:
+        stats = pd.DataFrame({
+            'start_date': group['Date'].min(),
+            'end_date': group['Date'].max(),
+            'data_points': group[numeric_cols].count().iloc[0],
+            'missing_pct': (group[numeric_cols].isna().sum() / len(group) * 100).round(2).mean(),
+            'mean': group[numeric_cols].mean().round(4),
+            'std': group[numeric_cols].std().round(4),
+            'min': group[numeric_cols].min().round(4),
+            'max': group[numeric_cols].max().round(4)
+        }, index=['Value'])
+        
+        stats_dict[market] = stats
+
+    return stats_dict
+
+def print_summary_stats(df):
+    """
+    Print formatted summary statistics for each market.
+    
+    Parameters:
+    df (pandas.DataFrame): Input DataFrame
+    """
+    stats_dict = generate_summary_stats(df)
+    
+    for market, stats in stats_dict.items():
+        print(f"\n=== {market} Statistics ===")
+        print(stats)
+        print("\n")

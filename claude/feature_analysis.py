@@ -18,31 +18,32 @@ from FinancialMachineLearning.machine_learning.clustering import clusterKMeansBa
 
 # Claude modules
 from claude.feature_storage import FeatureStorage
-
+from claude.model import Model
 
 class FeatureAnalysis:
-    def __init__(self, X: pd.DataFrame, y: pd.Series, cv_folds: CombinatorialPurgedKFold, combined_weights: pd.Series):
-        self.X = X
-        self.y = y
-        self.cv_folds = cv_folds
-        self.model = RandomForestClassifier(
-            criterion = 'entropy',
-            class_weight = 'balanced_subsample',
-            min_weight_fraction_leaf = 0.0,
-            random_state = 42,
-            n_estimators = 1000,
-            max_features = 1,
-            oob_score = True,
-            n_jobs = 1
+    def __init__(self, model: Model, path="./Data"):
+        self.X = model.X_clean
+        self.y = model.y_size
+        # Extract the t1 series from triple_barrier_events
+        # Make sure we only include events for our feature set
+        samples_info_sets = model.triple_barrier_events.loc[model.X_clean.index, 't1']
+
+        comb_purge_fold = CombinatorialPurgedKFold(
+            n_splits = 5,
+            n_test_splits = 2,
+            samples_info_sets = samples_info_sets,
+            pct_embargo = 0.06
         )
+        self.cv_folds = comb_purge_fold
+        self.model = model.y_size
 
         # Add validation and debugging for orthogonal features
         print("\nBefore orthogonal transformation:")
-        print("X shape:", X.shape)
-        print("X NaN count:", X.isna().sum().sum())
-        print("X inf count:", np.isinf(X.values).sum())
+        print("X shape:", model.X_clean.shape)
+        print("X NaN count:", model.X_clean.isna().sum().sum())
+        print("X inf count:", np.isinf(model.X_clean.values).sum())
 
-        self.ortho_features = get_orthogonal_features(X, variance_thresh=0.95)
+        self.ortho_features = get_orthogonal_features(model.X_clean, variance_thresh=0.95)
         print("\nAfter orthogonal transformation:")
         print("Ortho features shape:", self.ortho_features.shape)
         print("Ortho features NaN count:", np.isnan(self.ortho_features).sum())
@@ -67,14 +68,14 @@ class FeatureAnalysis:
             print(f"Error during cross validation: {str(e)}")
             self.oos_score = 0.0
         
-        fs = FeatureStorage("./Data/ortho.parquet")
+        fs = FeatureStorage(path + "/ortho.parquet")
         fs.save_features(self.ortho_features)
         
         self.fit_model = self.model.fit(
             X = self.ortho_features,
-            y = y,
+            y = model.y_size,
         )
-        
+
     def group_mean_std(self, df0, clstrs) -> pd.DataFrame :
         out = pd.DataFrame(columns = ['mean','std'])
         for i, j in clstrs.items() :
@@ -94,42 +95,42 @@ class FeatureAnalysis:
             max_display = len(shap_values_train.feature_names),
             plot_size = (8, 8)
         )
+        plt.show()
         plt.savefig('shap')
-
-    def analyze_feature_importance(self):
-        print (f"Beginning analyze_feature_importance at time {datetime.now()}")
-        importance_results = {}
-        # MDI Analysis
-        importance_results['mdi'] = mean_decrease_impurity(
+    
+    def mdi(self, path="./Data/images"):
+        mdi_results = mean_decrease_impurity(
             model=self.fit_model,
             feature_names=self.ortho_features.columns
         )
         plot_feature_importance(
-            importance_results['mdi'],
+            mdi_results,
             oob_score=self.fit_model.oob_score_,
             oos_score=self.oos_score,
             save_fig=True,
-            output_path=f'./Data/images/Ortho_MDI_feature_importance.png'
+            output_path=f'{path}/Ortho_MDI_feature_importance.png'
         )
-        
-        print(self.y)
+    def mda(self, path="./Data/images", scoring=accuracy_score):
         # MDA Analysis
-        importance_results['mda'] = mean_decrease_accuracy(
+        mda_results = mean_decrease_accuracy(
             model=self.fit_model,
             X=self.ortho_features,
             y=self.y,
-            cv_gen=self.cv_folds
+            cv_gen=self.cv_folds,
+            scoring = scoring # optimizing to accuracy score
         )
         plot_feature_importance(
-            importance_results['mda'],
+            mda_results,
             oob_score=self.fit_model.oob_score_,
             oos_score=self.oos_score,
             save_fig=True,
-            output_path=f'./Data/images/Ortho_MDA_feature_importance.png'
+            output_path=f'{path}/Ortho_MDA_feature_importance.png',
         )
-        
+        return mda_results
+    
+    def sfi(self, path="./Data/images"):
         # SFI Analysis
-        importance_results['sfi'] = single_feature_importance(
+        sfi_results = single_feature_importance(
             clf=self.fit_model,
             X=self.ortho_features,
             y=self.y,
@@ -137,12 +138,15 @@ class FeatureAnalysis:
             scoring=accuracy_score
         )
         plot_feature_importance(
-            importance_results['sfi'],
+            sfi_results,
             oob_score=self.fit_model.oob_score_,
             oos_score=self.oos_score,
             save_fig=True,
-            output_path=f'./Data/images/Ortho_SFI_feature_importance.png'
+            output_path=f'{path}/Ortho_SFI_feature_importance.png'
         )
+
+    def analyze_feature_importance(self):
+        print (f"Beginning analyze_feature_importance at time {datetime.now()}")
         
         # Clustered Mean decrease importance
         corr0, clusters, _ = clusterKMeansBase(self.ortho_features.corr(), maxNumClusters = 10, n_init = 10)

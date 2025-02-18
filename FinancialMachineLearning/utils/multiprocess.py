@@ -20,22 +20,44 @@ def nested_parts(num_atoms, num_threads, upper_triangle=False):
         parts = np.cumsum(np.diff(parts)[::-1])
         parts = np.append(np.array([0]), parts)
     return parts
-def mp_pandas_obj(func, pd_obj, num_threads=24, mp_batches=1, lin_mols=True, **kargs):
+def mp_pandas_obj(
+    func,           # The function to apply to data chunks
+    pd_obj,         # Tuple of (column name, pandas object)
+    num_threads=24, # Number of CPU threads to use
+    mp_batches=1,   # Number of batches per thread
+    lin_mols=True,  # Whether to use linear or nested partitioning
+    **kargs         # Additional arguments passed to func
+):
+    # Partitioning Data
     if lin_mols:
         parts = lin_parts(len(pd_obj[1]), num_threads * mp_batches)
     else:
         parts = nested_parts(len(pd_obj[1]), num_threads * mp_batches) 
+
+    # This splits the data into chunks for parallel processing, either linearly or nested
     jobs = []
+
+    # Creating Jobs
     for i in range(1, len(parts)):
+        # Creates a list of jobs where each job contains:
+        #   - A slice of the pandas object
+        #   - The function to apply
+        #   - Any additional arguments
         job = {pd_obj[0]: pd_obj[1][parts[i - 1]:parts[i]], 'func': func}
         job.update(kargs)
         jobs.append(job)
 
+    # Processing
     if num_threads == 1:
-        out = process_jobs_(jobs)
+        out = process_jobs_(jobs) # Single-threaded
     else:
-        out = process_jobs(jobs, num_threads=num_threads)
+        out = process_jobs(jobs, num_threads=num_threads)  # Multi-threaded
 
+    # Result Assembly
+    #   - Determines output type (DataFrame or Series)
+    #   - Concatenates results from all jobs
+    #   - Sorts by index
+    #   - Returns final result
     if isinstance(out[0], pd.DataFrame):
         df0 = pd.DataFrame()
     elif isinstance(out[0], pd.Series):

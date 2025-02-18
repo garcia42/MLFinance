@@ -17,3 +17,5 @@ claude/Data/ES_tick/ES_processed_final.csv
 # Other random crap
 yarn-error.log
 =*
+
+venv

@@ -11,3 +11,15 @@ services:
       interval: 10s
       timeout: 5s
       retries: 3
+  ib-gateway:
+    image: dvasdekis/ib-gateway-docker:v978
+    environment:
+      - TWSUSERID=your_username  # Your IB account username
+      - TWSPASSWORD=your_password  # Your IB account password
+      - TRADING_MODE=paper  # Change to 'live' for live trading
+      - XVFB_ARGS="-ac -screen 0 1024x768x16 +extension RANDR"
+    ports:
+      - "4004:4004"  # Paper trading port
+      # - "4003:4003"  # Uncomment for live trading port
+      # - "5901:5900"  # Uncomment for VNC access
+    restart: unless-stopped

@@ -1,0 +1,17 @@
+version: "3.4"
+
+services:
+  ib-gateway:
+    build: .
+    restart: always
+    environment:
+      TWS_USERID: ${TWS_USERID}
+      TWS_PASSWORD: ${TWS_PASSWORD}
+      TRADING_MODE: ${TRADING_MODE:-paper}
+      READ_ONLY_API: ${READ_ONLY_API:-no}
+      TWOFA_TIMEOUT_ACTION: ${TWOFA_TIMEOUT_ACTION:-exit}
+      AUTO_RESTART_TIME: ${AUTO_RESTART_TIME:-}
+      TIME_ZONE: ${TIME_ZONE:-America/New_York}
+    ports:
+      - "127.0.0.1:4001:4001"  # Live trading port
+      - "127.0.0.1:4002:4002"  # Paper trading port
