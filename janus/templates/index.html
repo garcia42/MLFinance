@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Cloud Run Flask App</title>
+</head>
+<body>
+    <h1>{{ message }}</h1>
+    
+    <h2>Environment Information:</h2>
+    <ul>
+        <li>Service: {{ Service }}</li>
+        <li>Revision: {{ Revision }}</li>
+    </ul>
+
+    <h2>IB Gateway Status:</h2>
+    <ul>
+        <li>Connection Status: {{ "Connected" if IB_Connected else "Disconnected" }}</li>
+        <li>Gateway URL: {{ IB_Gateway_URL }}</li>
+    </ul>
+</body>
+</html>

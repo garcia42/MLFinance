@@ -3,7 +3,7 @@ import asyncio
 import logging
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Union, List
+from typing import Union, List, Tuple
 
 # Third-party modules
 import pandas as pd
@@ -15,7 +15,6 @@ from FinancialMachineLearning.filter.etf_trick import etfTrick
 
 # Claude modules
 from claude.contract_util import get_local_symbol
-
 
 class ContinuousFuturesContract:
     def __init__(self, ib: IB):
@@ -362,7 +361,7 @@ class ContinuousFuturesContract:
         
         return df
     
-    async def get_continuous_contract(self, underlying="ES", exchange="CME", lookback_days=365, data_dir="Data/ES_1min") -> pd.DataFrame:
+    async def get_continuous_contract(self, underlying="ES", exchange="CME", lookback_days=365, data_dir="Data/ES_1min") -> Tuple[RunBarFeatures, pd.DataFrame]:
         """
         Generate continuous contract data with OHLCV data
         
@@ -379,7 +378,7 @@ class ContinuousFuturesContract:
             start_date = datetime.now() - timedelta(days=lookback_days)
 
             # Define your desired date range
-            contract_files = self.get_es_contract_files(365 * 5)
+            contract_files = self.get_es_contract_files(lookback_days=lookback_days)
 
             # Load data
             raw_data = self.load_es_contract_data(
@@ -409,10 +408,8 @@ class ContinuousFuturesContract:
             result = raw_data.sort_index()
             run_bar = RunBarFeatures(result)
             run_bar_df = run_bar.ema_dollar_run_bar()[0]
-            print("\nSample of run bars:")
-            print(run_bar_df.head())
             run_bar_df = run_bar_df.set_index(pd.to_datetime(run_bar_df['date_time']))
-            return run_bar_df
+            return run_bar, run_bar_df
 
         except Exception as e:
             print(f"Error generating continuous contract: {e}")

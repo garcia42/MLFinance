@@ -13,7 +13,8 @@ from FinancialMachineLearning.backtest.backtest_statistics import probabilistic_
 from FinancialMachineLearning.cross_validation.combinatorial import CombinatorialPurgedKFold
 
 # Claude modules
-from claude.train_model import Model, build_model
+from claude.model import Model
+from claude.train_model import build_model
 
 
 def _split_data(X: Union[pd.DataFrame, pd.Series], split_date: str = '2023-01-01') -> tuple[Union[pd.DataFrame, pd.Series], Union[pd.DataFrame, pd.Series]]:

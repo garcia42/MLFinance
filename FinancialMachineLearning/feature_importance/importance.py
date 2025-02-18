@@ -42,38 +42,85 @@ def mean_decrease_impurity_modified(model, feature_names):
 def mean_decrease_accuracy(model, X, y, cv_gen, sample_weight=None, scoring=log_loss) -> pd.DataFrame:
     if sample_weight is None:
         sample_weight = np.ones((X.shape[0],))
-
-    fold_metrics_values, features_metrics_values = pd.Series(dtype = float), pd.DataFrame(columns=X.columns)
-
+    
+    # Log input shapes and basic info
+    print(f"Input shapes - X: {X.shape}, y: {y.shape}, sample_weight: {sample_weight.shape}")
+    print(f"Unique y values: {np.unique(y)}")
+    print(f"Scoring function: {scoring.__name__}")
+    
+    fold_metrics_values, features_metrics_values = pd.Series(dtype=float), pd.DataFrame(columns=X.columns)
+    
     for i, (train, test) in tqdm(enumerate(cv_gen.split(X=X))):
-        fit = model.fit(X=X.iloc[train, :], y=y.iloc[train], sample_weight = sample_weight[train])
+        print(f"\nFold {i} - Train size: {len(train)}, Test size: {len(test)}")
+        
+        fit = model.fit(X=X.iloc[train, :], y=y.iloc[train], sample_weight=sample_weight[train])
         pred = fit.predict(X.iloc[test, :])
+        
         if scoring == log_loss:
             prob = fit.predict_proba(X.iloc[test, :])
-            fold_metrics_values.loc[i] = -scoring(y.iloc[test], prob, sample_weight = sample_weight[test],
-                                                  labels = model.classes_)
+            fold_score = -scoring(y.iloc[test], prob, sample_weight=sample_weight[test], labels=model.classes_)
+            print(f"Fold {i} base log_loss: {-fold_score:.4f}")
         else:
-            fold_metrics_values.loc[i] = scoring(y.iloc[test], pred, sample_weight = sample_weight[test])
+            fold_score = scoring(y.iloc[test], pred, sample_weight=sample_weight[test])
+            print(f"Fold {i} base score: {fold_score:.4f}")
+            
+        fold_metrics_values.loc[i] = fold_score
+        
+        # Log feature permutation scores
+        feature_scores = {}
         for j in X.columns:
             X1_ = X.iloc[test, :].copy(deep=True)
             np.random.shuffle(X1_[j].values)
+            
             if scoring == log_loss:
                 prob = fit.predict_proba(X1_)
-                features_metrics_values.loc[i, j] = -scoring(y.iloc[test], prob, sample_weight=sample_weight[test],
-                                                             labels=model.classes_)
+                feature_score = -scoring(y.iloc[test], prob, sample_weight=sample_weight[test], labels=model.classes_)
             else:
                 pred = fit.predict(X1_)
-                features_metrics_values.loc[i, j] = scoring(y.iloc[test], pred,
-                                                            sample_weight=sample_weight[test])
-
+                feature_score = scoring(y.iloc[test], pred, sample_weight=sample_weight[test])
+                
+            features_metrics_values.loc[i, j] = feature_score
+            feature_scores[j] = feature_score
+        
+        print(f"Fold {i} feature scores range: {min(feature_scores.values()):.4f} to {max(feature_scores.values()):.4f}")
+    
+    # Calculate importance
     importance = (-features_metrics_values).add(fold_metrics_values, axis=0)
+    print("\nPre-normalization importance stats:")
+    print(importance.describe())
+    
     if scoring == log_loss:
+        # Log denominators before division
+        print("\nDenominator (-features_metrics_values) stats:")
+        print((-features_metrics_values).describe())
         importance = importance / -features_metrics_values
     else:
+        # Log denominators before division
+        print("\nDenominator (1.0 - features_metrics_values) stats:")
+        print((1.0 - features_metrics_values).describe())
         importance = importance / (1.0 - features_metrics_values)
-    importance = pd.concat({'mean': importance.mean(), 'std': importance.std() * importance.shape[0] ** -.5}, axis=1)
+    
+    print("\nPost-normalization importance stats:")
+    print(importance.describe())
+    
+    # Calculate final statistics
+    importance = pd.concat({
+        'mean': importance.mean(),
+        'std': importance.std() * importance.shape[0] ** -.5
+    }, axis=1)
+    
+    print("\nFinal importance values before replacing inf/nan:")
+    print(importance)
+    
+    # Log any inf or nan values being replaced
+    inf_mask = np.isinf(importance)
+    nan_mask = np.isnan(importance)
+    if inf_mask.any().any() or nan_mask.any().any():
+        print("\nReplacing the following inf/nan values:")
+        print("Inf values at:", np.where(inf_mask))
+        print("NaN values at:", np.where(nan_mask))
+    
     importance.replace([-np.inf, np.nan], 0, inplace=True)
-
     return importance
 
 def single_feature_importance(clf, X, y, cv_gen, sample_weight = None, scoring = log_loss):
@@ -245,7 +292,6 @@ def plot_feature_importance(importance_df, oob_score, oos_score, save_fig=False,
     plt.axvline(x = 0, color = 'lightgray', ls = '-.', lw = 1, alpha = 0.75)
     plt.title('Feature importance. OOB Score:{}; OOS score:{}'.format(round(oob_score, 4), round(oos_score, 4)))
 
+    plt.savefig(output_path)
     if save_fig is True:
-        plt.savefig(output_path)
-    else:
         plt.show()

@@ -8,6 +8,8 @@ from dataclasses import dataclass
 from sklearn.ensemble import BaggingClassifier, RandomForestClassifier
 from sklearn.preprocessing import RobustScaler
 
+from claude.model import Model
+
 # FinancialMachineLearning modules
 from FinancialMachineLearning.cross_validation.combinatorial import CombinatorialPurgedKFold
 from FinancialMachineLearning.features.volatility import daily_volatility_intraday
@@ -21,24 +23,7 @@ from FinancialMachineLearning.utils.multiprocess import *
 from claude.feature_analysis import FeatureAnalysis
 from claude.feature_storage import FeatureStorage
 
-
-REGENERATE_CACHE=True
-
-
-@dataclass
-class Model:
-    triple_barrier_events: pd.DataFrame
-    X_clean: pd.DataFrame
-    y_side: pd.Series
-    y_size: pd.Series
-    combined_weights: pd.Series
-    avg_uniq: pd.DataFrame
-    fit_size_model: BaggingClassifier
-    size_model: BaggingClassifier
-    fit_side_model: BaggingClassifier
-    side_model: BaggingClassifier
-
-def build_model(features: pd.DataFrame, use_cache = REGENERATE_CACHE, path='./Data') -> Model:
+def build_model(features: pd.DataFrame, use_cache = True, path='./Data') -> Model:
     tfs = FeatureStorage(path + '/tbe_before_analyze.parquet')
     fs = FeatureStorage(path + '/X_before_analyze.parquet')
     fsyd = FeatureStorage(path + '/y_side_before_analyze.parquet')
@@ -47,7 +32,7 @@ def build_model(features: pd.DataFrame, use_cache = REGENERATE_CACHE, path='./Da
     fsu = FeatureStorage(path + '/uniq_before_analysis.parquet')
     
     if not use_cache:
-        X, triple_barrier_events, y_side, y_size = _label(features=features.copy(), path=path)
+        X, triple_barrier_events, y_side, y_size = _label(features=features.copy(), path=path, use_cache=use_cache)
         combined_weights, avg_uniq = _weights(features=features, triple_barrier_events=triple_barrier_events)
         X_clean, y_side, y_size, combined_weights = _clean_features(X_df=X, combined_weights=combined_weights, y_side=y_side, y_size=y_size)
         
@@ -157,10 +142,10 @@ def _weights(features: pd.DataFrame, triple_barrier_events: Any) -> Tuple[pd.Ser
     
     return combined_weights, avg_unique
 
-def _label(features: pd.DataFrame, path="./Data") -> Tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
+def _label(features: pd.DataFrame, path="./Data", use_cache=True) -> Tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
     fs = FeatureStorage(path + '/triple_barrier_events.parquet')
     
-    if REGENERATE_CACHE:
+    if not use_cache:
         vertical_barrier = add_vertical_barrier(
             features.index,
             features['close'],
@@ -220,7 +205,7 @@ def _label(features: pd.DataFrame, path="./Data") -> Tuple[pd.DataFrame, pd.Data
     features['side'] = triple_barrier_events['side'].copy()
     features['label'] = meta_labels['bin'].copy()
     
-    features.drop(['open','high','low','close','volume', 'date_time', 'Date'], axis = 1, inplace = True)
+    features.drop(['open','high','low','close','volume', 'date_time', 'cum_buy_volume', 'cum_ticks', 'cum_dollar_value', 'tick_num'], axis = 1, inplace = True)
     
     features.dropna(inplace = True)
     matrix = features[features['side'] != 0]
@@ -248,22 +233,37 @@ def _label(features: pd.DataFrame, path="./Data") -> Tuple[pd.DataFrame, pd.Data
     return X, triple_barrier_events, y_side, y_size
 
 def _analyze_features(model: Model) -> Tuple[BaggingClassifier, dict]:
-    # Extract the t1 series from triple_barrier_events
-    # Make sure we only include events for our feature set
-    samples_info_sets = model.triple_barrier_events.loc[model.X_clean.index, 't1']
-
-    comb_purge_fold = CombinatorialPurgedKFold(
-        n_splits = 5,
-        n_test_splits = 2,
-        samples_info_sets = samples_info_sets,
-        pct_embargo = 0.01
-    )
-
-    feature_analyzer = FeatureAnalysis(X=model.X, y=model.y_size, cv_folds=comb_purge_fold, combined_weights=model.combined_weights)
+    feature_analyzer = FeatureAnalysis(model=model)
     # feature_importance = feature_analyzer.analyze_feature_importance()
     feature_analyzer.analyze_shap()
 
     # return feature_importance
+
+# def _train_model(triple_barrier_events: pd.DataFrame, X: pd.DataFrame, y: pd.Series, avg_uniqueness: pd.Series, combined_weights: pd.Series) -> Tuple[BaggingClassifier, BaggingClassifier]:
+#     ### Train the size learner
+#     random_forest_weak = RandomForestClassifier(
+#         n_estimators = 1,
+#         criterion = 'entropy',
+#         bootstrap = False,
+#         class_weight = 'balanced_subsample',
+#         max_features = 'sqrt',  # Changed from 3 since you have 38 features
+#         max_depth = 10,        # Add depth limit
+#         min_samples_split = 20, # Add minimum split size
+#         min_weight_fraction_leaf = 0.05, # early stopping
+#     )
+#     forest_bagging = BaggingClassifier(
+#         base_estimator = random_forest_weak,
+#         n_estimators = 1000,
+#         max_samples = avg_uniqueness.loc[X.index].mean()[0],
+#         max_features = .5,
+#         random_state = 42
+#     )
+#     forest_bagging_fit = forest_bagging.fit(
+#         X = X,
+#         y = y,
+#         sample_weight = combined_weights.loc[X.index]
+#     )
+#     return forest_bagging_fit, forest_bagging
 
 def _train_model(triple_barrier_events: pd.DataFrame, X: pd.DataFrame, y: pd.Series, avg_uniqueness: pd.Series, combined_weights: pd.Series) -> Tuple[BaggingClassifier, BaggingClassifier]:
     ### Train the size learner
@@ -273,19 +273,23 @@ def _train_model(triple_barrier_events: pd.DataFrame, X: pd.DataFrame, y: pd.Ser
         bootstrap = False,
         class_weight = 'balanced_subsample',
         min_weight_fraction_leaf = 0.05,
-        max_features = 3,
+        max_features='sqrt',  # Change from 3 to sqrt
+        max_depth=4,         # Add max_depth
+        min_samples_leaf=100, # Increase min samples per leaf
+        min_samples_split=100,    # Add minimum split requirement
         random_state = 42
     )
     forest_bagging = BaggingClassifier(
         base_estimator = random_forest_weak,
-        n_estimators = 1000,
+        n_estimators = 500,
         max_samples = avg_uniqueness.loc[X.index].mean()[0],
         max_features = .5,
+        bootstrap=True,
         random_state = 42
     )
     forest_bagging_fit = forest_bagging.fit(
         X = X,
         y = y,
-        sample_weight = combined_weights
+        sample_weight = combined_weights.loc[X.index]
     )
     return forest_bagging_fit, forest_bagging

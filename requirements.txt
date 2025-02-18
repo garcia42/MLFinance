@@ -1,7 +1,7 @@
-# Main code dependencies
-#
-arch ~= 7.2
-fredapi ~= 0.5.2
+numpy>=1.20.0
+pytest>=7.0.0
+scikit-build>=0.13.1
+cmake>=3.18
 ib-insync ~= 0.9.86
 matplotlib ~= 3.10
 pandas ~= 2.2
