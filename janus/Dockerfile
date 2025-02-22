@@ -2,19 +2,21 @@ FROM ghcr.io/gnzsnz/ib-gateway:latest
 
 # Install Python and required packages
 USER root
-RUN apt-get update && apt-get install -y \
-    python3 \
-    python3-pip \
-    python3-venv \
-    python3-full \
+RUN apt-get update && apt-get install -y software-properties-common && \
+    add-apt-repository ppa:deadsnakes/ppa && \
+    apt-get update && \
+    apt-get install -y \
+    python3.9 \
+    python3.9-venv \
+    python3.9-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Add your Python application
 COPY . /home/ibgateway/app
 WORKDIR /home/ibgateway/app
 
-# Create and activate virtual environment
-RUN python3 -m venv /home/ibgateway/app/venv
+# Create and activate virtual environment with Python 3.9
+RUN python3.9 -m venv /home/ibgateway/app/venv
 ENV PATH="/home/ibgateway/app/venv/bin:$PATH"
 
 # Install Python dependencies in the virtual environment

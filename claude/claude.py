@@ -22,7 +22,7 @@ from claude.fred_collector import FredDataCollector, create_fred_collector
 from claude.train_model import label_and_analyze
 from claude.validate import label_and_cross_validate, calculate_psr, build_model
 from claude.continuous_futures_contract import ContinuousFuturesContract
-from claude.market_indicator_data import fetch_market_indicators
+from janus.indicators.Data.market_indicator_data import fetch_market_indicators
 
 # Apply nest_asyncio to allow nested event loops
 nest_asyncio.apply()
