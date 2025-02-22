@@ -15,3 +15,5 @@ services:
     ports:
       - "127.0.0.1:4001:4001"  # Live trading port
       - "127.0.0.1:4002:4002"  # Paper trading port
+    volumes:
+      - ../indicators:/home/ibgateway/app/indicators
