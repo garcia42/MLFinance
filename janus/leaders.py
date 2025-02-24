@@ -8,7 +8,7 @@ from ib_insync import IB
 async def get_positive_leaders(ib: IB):
     market_indicators_data, n_markets = await fetch_market_indicators(ib=ib, lookback_years=2)
     # market_indicators_data, n_markets = await fetch_market_indicators(ib=ib, lookback_years=2)
-    _, janus, _, market_names = multi_indicators(df=market_indicators_data, n_markets=n_markets)
+    _, janus, _, market_names = multi_indicators(df=market_indicators_data, n_markets=n_markets, lookback=100)
     
     leader_indices, leader_doms, cma = janus.get_current_leader_dom_vs_cma()
 
