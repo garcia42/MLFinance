@@ -26,8 +26,6 @@ from math import isnan
 
 nest_asyncio.apply()
 
-app = FastAPI()
-
 # Configure logging
 logging.basicConfig(level=logging.INFO, 
                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -123,8 +121,40 @@ class IBClient:
             asyncio.run(self.ib.disconnect())
         self.executor.shutdown(wait=True)
 
-# Create global IB client instance
+from contextlib import asynccontextmanager
+
+# Global IB client
 ib_client = IBClient()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Connect to IB Gateway at startup
+    print("Starting up - connecting to IB Gateway...")
+    try:
+        await ib_client.ib.connectAsync(
+            host=ib_client.ib_config['host'],
+            port=ib_client.ib_config['port'],
+            clientId=ib_client.ib_config['clientId']
+        )
+        print("Successfully connected to IB Gateway")
+    except Exception as e:
+        print(f"Failed to connect to IB Gateway: {e}")
+        if 'port' in str(e).lower() or 'connection refused' in str(e).lower():
+            print('Critical connection error')
+            sys.exit(1)
+    
+    # Yield control back to FastAPI
+    yield
+    
+    # Disconnect on shutdown
+    print("Shutting down - disconnecting from IB Gateway...")
+    if ib_client.ib.isConnected():
+        await ib_client.ib.disconnect()
+    ib_client.executor.shutdown(wait=False)
+    print("Disconnected from IB Gateway")
+
+# Now use the lifespan manager with your FastAPI app
+app = FastAPI(lifespan=lifespan)
 
 class Position(BaseModel):
     contract: Dict
@@ -396,6 +426,9 @@ async def validate_contract(ib_client, symbol: str) -> Stock:
 
 @app.get("/daily")
 async def do_buys_for_day():
+    # At the beginning of your do_buys_for_day function
+    logger.warning(f"do_buys_for_day was called by: {traceback.format_stack()}")
+
     """Execute daily orders - sell non-leaders and prepare to buy new leaders"""
     if not ib_client.ib.isConnected():
         raise HTTPException(status_code=503, detail="Not connected to IB Gateway")
@@ -554,10 +587,10 @@ async def do_buys_for_day():
             status_code=500, 
             detail=str(e) if not DEBUG else f"{str(e)}\n\n{error_trace}"
         )
-    
-def start_server():
+
+# Remove the old start_server function and modify __main__ block
+if __name__ == '__main__':
     try:
-        ib_client.start()
         port = int(os.getenv('PORT', '8080'))
         uvicorn.run(
             app,
@@ -568,7 +601,4 @@ def start_server():
     except Exception as e:
         print(f'Fatal error: {e}')
         print(f'Traceback: {traceback.format_exc()}')
-        ib_client.stop()
-
-if __name__ == '__main__':
-    start_server()
+        # No need to call ib_client.stop() as the lifespan manager handles this
