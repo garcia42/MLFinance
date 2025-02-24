@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
-from ib_insync import IB, Stock, Contract, MarketOrder
+from ib_insync import IB, Stock, Contract, MarketOrder, Trade
 import threading
 import os
 import signal
@@ -13,6 +13,7 @@ from pydantic import BaseModel
 import nest_asyncio
 import logging
 from leaders import get_positive_leaders
+import traceback
 
 from datetime import datetime
 from pytz import timezone
@@ -28,8 +29,12 @@ nest_asyncio.apply()
 app = FastAPI()
 
 # Configure logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.INFO, 
+                   format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+
+# Set debug mode from environment
+DEBUG = os.getenv("DEBUG", "False").lower() in ("true", "1", "t")
 
 class IBClient:
     def __init__(self):
@@ -58,6 +63,7 @@ class IBClient:
                 self.executor.shutdown(wait=True)
         except Exception as e:
             print(f'Error during shutdown: {e}')
+            print(f'Traceback: {traceback.format_exc()}')
         finally:
             sys.exit(0)
 
@@ -68,6 +74,7 @@ class IBClient:
             print('Successfully connected to IB Gateway')
         except Exception as e:
             print(f'Connection error: {e}')
+            print(f'Traceback: {traceback.format_exc()}')
             if 'port' in str(e).lower() or 'connection refused' in str(e).lower():
                 print('Critical connection error, exiting...')
                 sys.exit(1)
@@ -89,9 +96,10 @@ class IBClient:
                 self.loop.run_until_complete(self.maintain_connection())
             except Exception as e:
                 print(f'Event loop crashed: {e}')
+                print(f'Traceback: {traceback.format_exc()}')
             finally:
                 print("Event loop stopped. Restarting in 2 seconds...")
-                asyncio.sleep(2)
+                time.sleep(2)  # Changed asyncio.sleep to time.sleep since this is not in an async context
 
     def start(self):
         """Start the connection maintenance thread"""
@@ -137,6 +145,18 @@ class MarketData(BaseModel):
     volume: int
     close: float
 
+# Global exception handler
+@app.exception_handler(Exception)
+async def global_exception_handler(request, exc):
+    error_detail = str(exc)
+    if DEBUG:
+        error_detail = f"{str(exc)}\n\nTraceback:\n{traceback.format_exc()}"
+    logger.error(f"Unhandled exception: {error_detail}")
+    return JSONResponse(
+        status_code=500,
+        content={"detail": error_detail}
+    )
+
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
@@ -173,6 +193,13 @@ async def get_status():
                     'error': 'Timeout qualifying contract'
                 }
                 return status
+            except Exception as e:
+                status['diagnostics']['contract_qualification'] = {
+                    'working': False,
+                    'error': str(e),
+                    'traceback': traceback.format_exc() if DEBUG else None
+                }
+                return status
             
             if qualified:
                 try:
@@ -194,10 +221,12 @@ async def get_status():
                 except Exception as e:
                     status['historical_data'] = {
                         'working': False,
-                        'error': str(e)
+                        'error': str(e),
+                        'traceback': traceback.format_exc() if DEBUG else None
                     }
         except Exception as e:
             status['error'] = str(e)
+            status['traceback'] = traceback.format_exc() if DEBUG else None
     
     return status
 
@@ -220,7 +249,11 @@ async def get_positions():
             'avgCost': pos.avgCost
         } for pos in positions]
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.exception("Error getting positions")
+        raise HTTPException(
+            status_code=500, 
+            detail=str(e) if not DEBUG else f"{str(e)}\n\n{traceback.format_exc()}"
+        )
 
 @app.get("/market_data/{symbol}", response_model=MarketData)
 async def get_market_data(symbol: str):
@@ -242,11 +275,22 @@ async def get_market_data(symbol: str):
             'close': ticker.close
         }
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        logger.exception(f"Error getting market data for {symbol}")
+        raise HTTPException(
+            status_code=400, 
+            detail=str(e) if not DEBUG else f"{str(e)}\n\n{traceback.format_exc()}"
+        )
 
 @app.get("/account")
 async def how_much():
-    return await get_account_summary(ib_client.ib)
+    try:
+        return await get_account_summary(ib_client.ib)
+    except Exception as e:
+        logger.exception("Error in account endpoint")
+        raise HTTPException(
+            status_code=500, 
+            detail=str(e) if not DEBUG else f"{str(e)}\n\n{traceback.format_exc()}"
+        )
     
 async def get_account_summary(ib: IB) -> dict:
     if not ib.isConnected():
@@ -279,35 +323,54 @@ async def get_account_summary(ib: IB) -> dict:
         return acct
         
     except Exception as e:
-        print(f"Error getting account summary: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error getting account summary: {str(e)}")
+        logger.exception(f"Error getting account summary")
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Error getting account summary: {str(e)}" if not DEBUG else f"{str(e)}\n\n{traceback.format_exc()}"
+        )
 
 async def calculate_shares_to_buy(ib: IB, symbol: str, cash_per_position: float) -> int:
     """Calculate number of shares to buy based on current market price"""
-    contract = Stock(symbol, 'SMART', 'USD')
-    tickers = await ib.reqTickersAsync(contract)
-    
-    if not tickers:
-        raise ValueError(f"Could not get current price for {symbol}")
-    
-    logger.info("Ticker[0] %s", tickers[0])
-    logger.info("Ticker[0].marketPrice() %f", tickers[0].marketPrice())  # Changed %d to %f
-    current_price = tickers[0].marketPrice()
-    if isnan(current_price) or current_price <= 0:  # Add nan check
-        raise ValueError(f"Invalid or unavailable market price for {symbol}: {current_price}")
-
+    try:
+        contract = Stock(symbol, 'SMART', 'USD')
+        tickers = await ib.reqTickersAsync(contract)
         
-    # Calculate shares, round down to nearest whole share
-    shares = int(cash_per_position / current_price)
-    return shares
+        if not tickers:
+            error_msg = f"Could not get current price for {symbol}"
+            logger.error(error_msg)
+            raise ValueError(error_msg)
+        
+        logger.info("Ticker[0] %s", tickers[0])
+        logger.info("Ticker[0].marketPrice() %f", tickers[0].marketPrice())
+        current_price = tickers[0].marketPrice()
+        
+        if isnan(current_price) or current_price <= 0:
+            error_msg = f"Invalid or unavailable market price for {symbol}: {current_price}"
+            logger.error(error_msg)
+            raise ValueError(error_msg)
+            
+        # Calculate shares, round down to nearest whole share
+        shares = int(cash_per_position / current_price)
+        return shares
+    except Exception as e:
+        logger.exception(f"Error calculating shares to buy for {symbol}")
+        raise
 
-async def wait_for_order(trade, timeout=30):
+async def wait_for_order(trade: Trade, timeout=30):
     """Wait for an order to complete with timeout"""
-    start_time = time.time()
-    while not trade.isDone():
-        if time.time() - start_time > timeout:
-            raise TimeoutError(f"Order did not complete within {timeout} seconds")
-        await ib_client.ib.sleep(1)
+    try:
+        start_time = time.time()
+        while not trade.isDone():
+            if time.time() - start_time > timeout:
+                error_msg = f"Order did not complete within {timeout} seconds"
+                logger.error(error_msg)
+                raise TimeoutError(error_msg)
+            # FIX: Use asyncio.sleep instead of ib_client.ib.sleep
+            await asyncio.sleep(1)
+    except Exception as e:
+        if not isinstance(e, TimeoutError):
+            logger.exception(f"Error waiting for order: {trade.contract.symbol if trade.contract else 'Unknown'}")
+        raise
 
 def is_market_hours(current_time: datetime) -> bool:
     """Check if we're in regular market hours (9:30 AM - 4:00 PM ET, Mon-Fri)"""
@@ -319,22 +382,23 @@ def is_market_hours(current_time: datetime) -> bool:
 
 async def validate_contract(ib_client, symbol: str) -> Stock:
     """Validate and qualify a stock contract"""
-    contract = Stock(symbol, 'SMART', 'USD')
-    qualified_contracts = await ib_client.ib.qualifyContractsAsync(contract)
-    if not qualified_contracts:
-        raise ValueError(f"Could not validate contract for {symbol}")
-    return qualified_contracts[0]
+    try:
+        contract = Stock(symbol, 'SMART', 'USD')
+        qualified_contracts = await ib_client.ib.qualifyContractsAsync(contract)
+        if not qualified_contracts:
+            error_msg = f"Could not validate contract for {symbol}"
+            logger.error(error_msg)
+            raise ValueError(error_msg)
+        return qualified_contracts[0]
+    except Exception as e:
+        logger.exception(f"Error validating contract for {symbol}")
+        raise
 
 @app.get("/daily")
 async def do_buys_for_day():
     """Execute daily orders - sell non-leaders and prepare to buy new leaders"""
     if not ib_client.ib.isConnected():
         raise HTTPException(status_code=503, detail="Not connected to IB Gateway")
-
-    # # Check market hours
-    # current_time = datetime.now(timezone('US/Eastern'))
-    # if not is_market_hours(current_time):
-    #     raise HTTPException(status_code=400, detail="Market is currently closed")
 
     try:
         # Get current leaders
@@ -381,6 +445,9 @@ async def do_buys_for_day():
                         except TimeoutError as e:
                             logger.error(f"Order timeout for {symbol}: {e}")
                             continue
+                        except Exception as e:
+                            logger.exception(f"Unexpected error waiting for order for {symbol}")
+                            continue
 
                         # Check for complete fill
                         if trade.orderStatus.filled != quantity:
@@ -398,7 +465,7 @@ async def do_buys_for_day():
                         logger.info(f"Closed position for {symbol}: {trade.orderStatus.filled} shares {side} at {trade.orderStatus.avgFillPrice}")
                     
                     except Exception as e:
-                        logger.error(f"Failed to close position for {symbol}: {e}")
+                        logger.exception(f"Failed to close position for {symbol}")
                         continue
         else:
             logger.info("No positions found to process")
@@ -441,39 +508,52 @@ async def do_buys_for_day():
                 order = MarketOrder('BUY', shares)
                 trade = ib_client.ib.placeOrder(contract, order)
                 
+                logger.info("Waiting for order for %s", symbol)
+                
                 # Wait for order with timeout
                 try:
                     await wait_for_order(trade)
+                    # Checking the result after wait_for_order
+                    if trade.orderStatus.status == "Filled":
+                        logger.info("Order was filled for %s and units %d", symbol, shares)
+                        
+                        actions["buys_executed"].append({
+                            "symbol": symbol,
+                            "shares": shares,
+                            "filled_shares": trade.orderStatus.filled,
+                            "status": trade.orderStatus.status,
+                            "avg_fill_price": trade.orderStatus.avgFillPrice
+                        })
+                        
+                        logger.info(f"Bought {trade.orderStatus.filled} shares of {symbol} at {trade.orderStatus.avgFillPrice}")
+                    else:
+                        logger.error(f"Order not fully filled for {symbol}: {trade.orderStatus.status}")
+                        
                 except TimeoutError as e:
                     logger.error(f"Order timeout for {symbol}: {e}")
                     continue
-
-                # Check order status
-                if trade.orderStatus.status != "Filled":
-                    raise Exception(f"Order failed with status: {trade.orderStatus.status}")
-                
-                actions["buys_executed"].append({
-                    "symbol": symbol,
-                    "shares": shares,
-                    "filled_shares": trade.orderStatus.filled,
-                    "status": trade.orderStatus.status,
-                    "avg_fill_price": trade.orderStatus.avgFillPrice
-                })
-                
-                logger.info(f"Bought {trade.orderStatus.filled} shares of {symbol} at {trade.orderStatus.avgFillPrice}")
+                except Exception as e:
+                    logger.exception(f"Unexpected error waiting for order for {symbol}")
+                    continue
                 
             except Exception as e:
-                logger.error(f"Error buying {symbol}: {e}")
+                logger.exception(f"Error buying {symbol}")
                 actions["buys_executed"].append({
                     "symbol": symbol,
-                    "error": str(e)
+                    "error": str(e),
+                    "traceback": traceback.format_exc() if DEBUG else None
                 })
         
         return actions
         
     except Exception as e:
+        error_trace = traceback.format_exc()
         logger.error(f"Error in daily execution: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Traceback: {error_trace}")
+        raise HTTPException(
+            status_code=500, 
+            detail=str(e) if not DEBUG else f"{str(e)}\n\n{error_trace}"
+        )
     
 def start_server():
     try:
@@ -487,6 +567,7 @@ def start_server():
         )
     except Exception as e:
         print(f'Fatal error: {e}')
+        print(f'Traceback: {traceback.format_exc()}')
         ib_client.stop()
 
 if __name__ == '__main__':
