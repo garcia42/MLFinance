@@ -1,30 +1,27 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.responses import JSONResponse
 from ib_insync import IB, Stock, Contract, MarketOrder, Trade
-import threading
 import os
 import signal
 import sys
 import uvicorn
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Annotated
 import asyncio
-from concurrent.futures import ThreadPoolExecutor
-from pydantic import BaseModel
-import nest_asyncio
 import logging
-from leaders import get_positive_leaders
+from pydantic import BaseModel
 import traceback
-
 from datetime import datetime
 from pytz import timezone
 import time
-import asyncio
-from typing import Dict, List
-from fastapi import HTTPException
-from ib_insync import Stock, MarketOrder
 from math import isnan
+from contextlib import asynccontextmanager
 
-nest_asyncio.apply()
+# Import your updated IBClient
+from ib_client import IBClient
+from leaders import get_positive_leaders
+
+import dow
+import future_data
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, 
@@ -34,95 +31,6 @@ logger = logging.getLogger(__name__)
 # Set debug mode from environment
 DEBUG = os.getenv("DEBUG", "False").lower() in ("true", "1", "t")
 
-class IBClient:
-    def __init__(self):
-        self.ib = IB()
-        self.ib_config = {
-            'host': os.getenv('IB_HOST', '127.0.0.1'),
-            'port': int(os.getenv('IB_PORT', '4002')),  # 4001 for live, 4002 for paper
-            'clientId': int(os.getenv('IB_CLIENT_ID', '1')),
-        }
-        self.connection_thread = None
-        self.running = False
-        self.loop = None
-        self.executor = ThreadPoolExecutor(max_workers=3)
-        
-        # Set up signal handlers
-        signal.signal(signal.SIGTERM, self.handle_shutdown)
-        signal.signal(signal.SIGINT, self.handle_shutdown)
-
-    def handle_shutdown(self, signum, frame):
-        """Handle shutdown signals gracefully"""
-        print(f'Received signal {signum}. Starting shutdown...')
-        self.running = False
-        try:
-            if self.ib.isConnected():
-                asyncio.run_coroutine_threadsafe(self.ib.disconnect(), self.loop)
-                self.executor.shutdown(wait=True)
-        except Exception as e:
-            print(f'Error during shutdown: {e}')
-            print(f'Traceback: {traceback.format_exc()}')
-        finally:
-            sys.exit(0)
-
-    async def connect_ib(self):
-        """Async function to connect to IB Gateway"""
-        try:
-            await self.ib.connectAsync(**self.ib_config)
-            print('Successfully connected to IB Gateway')
-        except Exception as e:
-            print(f'Connection error: {e}')
-            print(f'Traceback: {traceback.format_exc()}')
-            if 'port' in str(e).lower() or 'connection refused' in str(e).lower():
-                print('Critical connection error, exiting...')
-                sys.exit(1)
-
-    async def maintain_connection(self):
-        """Async function to maintain IB connection"""
-        while self.running:
-            if not self.ib.isConnected():
-                print('Connecting to IB Gateway...')
-                await self.connect_ib()
-            await asyncio.sleep(1)
-
-    def run_async_loop(self):
-        """Run the async event loop in a separate thread and restart if needed"""
-        while self.running:
-            try:
-                self.loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(self.loop)
-                self.loop.run_until_complete(self.maintain_connection())
-            except Exception as e:
-                print(f'Event loop crashed: {e}')
-                print(f'Traceback: {traceback.format_exc()}')
-            finally:
-                print("Event loop stopped. Restarting in 2 seconds...")
-                time.sleep(2)  # Changed asyncio.sleep to time.sleep since this is not in an async context
-
-    def start(self):
-        """Start the connection maintenance thread"""
-        if self.loop and self.loop.is_running():
-            print("Event loop already running")
-            return
-        
-        self.running = True
-        self.connection_thread = threading.Thread(target=self.run_async_loop)
-        self.connection_thread.daemon = True
-        self.connection_thread.start()
-
-    def stop(self):
-        """Stop the connection maintenance thread"""
-        self.running = False
-        if self.loop:
-            self.loop.stop()
-        if self.connection_thread:
-            self.connection_thread.join()
-        if self.ib.isConnected():
-            asyncio.run(self.ib.disconnect())
-        self.executor.shutdown(wait=True)
-
-from contextlib import asynccontextmanager
-
 # Global IB client
 ib_client = IBClient()
 
@@ -131,17 +39,9 @@ async def lifespan(app: FastAPI):
     # Connect to IB Gateway at startup
     print("Starting up - connecting to IB Gateway...")
     try:
-        await ib_client.ib.connectAsync(
-            host=ib_client.ib_config['host'],
-            port=ib_client.ib_config['port'],
-            clientId=ib_client.ib_config['clientId']
-        )
-        print("Successfully connected to IB Gateway")
+        await ib_client.ensure_connected()
     except Exception as e:
-        print(f"Failed to connect to IB Gateway: {e}")
-        if 'port' in str(e).lower() or 'connection refused' in str(e).lower():
-            print('Critical connection error')
-            sys.exit(1)
+        print(f"Failed to establish initial connection: {e}")
     
     # Yield control back to FastAPI
     yield
@@ -149,11 +49,12 @@ async def lifespan(app: FastAPI):
     # Disconnect on shutdown
     print("Shutting down - disconnecting from IB Gateway...")
     if ib_client.ib.isConnected():
-        await ib_client.ib.disconnect()
+        # The disconnect method is synchronous, not async, so don't use await
+        ib_client.ib.disconnect()
     ib_client.executor.shutdown(wait=False)
     print("Disconnected from IB Gateway")
 
-# Now use the lifespan manager with your FastAPI app
+# Use the lifespan manager with your FastAPI app
 app = FastAPI(lifespan=lifespan)
 
 class Position(BaseModel):
@@ -175,6 +76,10 @@ class MarketData(BaseModel):
     volume: int
     close: float
 
+# Dependency to get a connected IB client
+async def get_ib() -> IB:
+    return await ib_client.ensure_connected()
+
 # Global exception handler
 @app.exception_handler(Exception)
 async def global_exception_handler(request, exc):
@@ -187,16 +92,11 @@ async def global_exception_handler(request, exc):
         content={"detail": error_detail}
     )
 
-@app.get("/health")
-async def health_check():
-    """Health check endpoint"""
-    return {"status": "healthy"}
-
 @app.get("/status")
-async def get_status():
+async def get_status(ib: Annotated[IB, Depends(get_ib)]):
     """Get the connection status with detailed diagnostics"""
     status = {
-        'connected': ib_client.ib.isConnected(),
+        'connected': ib.isConnected(),
         'client_id': ib_client.ib_config['clientId'],
         'mode': 'paper' if ib_client.ib_config['port'] == 4002 else 'live',
         'diagnostics': {}
@@ -212,7 +112,7 @@ async def get_status():
             }
             
             try:
-                qualified = await ib_client.ib.qualifyContractsAsync(contract)
+                qualified = await ib.qualifyContractsAsync(contract)
                 status['diagnostics']['contract_qualification'] = {
                     'working': True,
                     'qualified': bool(qualified)
@@ -233,7 +133,7 @@ async def get_status():
             
             if qualified:
                 try:
-                    bars = await ib_client.ib.reqHistoricalDataAsync(
+                    bars = await ib.reqHistoricalDataAsync(
                         contract,
                         endDateTime='',
                         durationStr='1 D',
@@ -261,13 +161,11 @@ async def get_status():
     return status
 
 @app.get("/positions", response_model=List[Position])
-async def get_positions():
+async def get_positions(ib: Annotated[IB, Depends(get_ib)]):
     """Get current positions"""
-    if not ib_client.ib.isConnected():
-        raise HTTPException(status_code=503, detail="Not connected to IB Gateway")
-    
     try:
-        positions = await ib_client.ib.reqPositionsAsync()
+        # Use the IBClient method that handles async properly
+        positions = await ib_client.get_positions()
         return [{
             'contract': {
                 'symbol': pos.contract.symbol,
@@ -285,106 +183,18 @@ async def get_positions():
             detail=str(e) if not DEBUG else f"{str(e)}\n\n{traceback.format_exc()}"
         )
 
-@app.get("/market_data/{symbol}", response_model=MarketData)
-async def get_market_data(symbol: str):
-    """Get market data for a symbol"""
-    if not ib_client.ib.isConnected():
-        raise HTTPException(status_code=503, detail="Not connected to IB Gateway")
-    
-    contract = Stock(symbol, 'SMART', 'USD')
-    try:
-        await ib_client.ib.qualifyContractsAsync(contract)
-        [ticker] = await ib_client.ib.reqTickersAsync(contract)
-        
-        return {
-            'symbol': symbol,
-            'last': ticker.last,
-            'bid': ticker.bid,
-            'ask': ticker.ask,
-            'volume': ticker.volume,
-            'close': ticker.close
-        }
-    except Exception as e:
-        logger.exception(f"Error getting market data for {symbol}")
-        raise HTTPException(
-            status_code=400, 
-            detail=str(e) if not DEBUG else f"{str(e)}\n\n{traceback.format_exc()}"
-        )
-
 @app.get("/account")
-async def how_much():
+async def how_much(ib: Annotated[IB, Depends(get_ib)]):
     try:
-        return await get_account_summary(ib_client.ib)
+        # Use IBClient's method to get account summary in a thread-safe way
+        account_summary = await ib_client.get_account_summary()
+        return account_summary
     except Exception as e:
         logger.exception("Error in account endpoint")
         raise HTTPException(
             status_code=500, 
             detail=str(e) if not DEBUG else f"{str(e)}\n\n{traceback.format_exc()}"
         )
-    
-async def get_account_summary(ib: IB) -> dict:
-    if not ib.isConnected():
-        raise HTTPException(status_code=503, detail="Not connected to IB Gateway")
-    
-    try:
-        await ib.reqAccountSummaryAsync()
-        
-        # Then grab the actual values from the wrapper
-        # The data should now be in ib.accountSummary()
-        account_values = ib.accountSummary()
-        
-        acct = {}
-        for value in account_values:
-            if value.tag == 'AvailableFunds':
-                acct['AvailableFunds'] = float(value.value)
-            if value.tag == "NetLiquidation":
-                acct['NetLiquidation'] = float(value.value)
-            if value.tag == "TotalCashValue":
-                acct['TotalCashValue'] = float(value.value)
-            if value.tag == "BuyingPower":
-                acct['BuyingPower'] = float(value.value)
-            if value.tag == "GrossPositionValue":
-                acct['GrossPositionValue'] = float(value.value)
-            if value.tag == "InitMarginReq":
-                acct['InitMarginReq'] = float(value.value)
-            if value.tag == "MaintMarginReq":
-                acct['MaintMarginReq'] = float(value.value)
-
-        return acct
-        
-    except Exception as e:
-        logger.exception(f"Error getting account summary")
-        raise HTTPException(
-            status_code=500, 
-            detail=f"Error getting account summary: {str(e)}" if not DEBUG else f"{str(e)}\n\n{traceback.format_exc()}"
-        )
-
-async def calculate_shares_to_buy(ib: IB, symbol: str, cash_per_position: float) -> int:
-    """Calculate number of shares to buy based on current market price"""
-    try:
-        contract = Stock(symbol, 'SMART', 'USD')
-        tickers = await ib.reqTickersAsync(contract)
-        
-        if not tickers:
-            error_msg = f"Could not get current price for {symbol}"
-            logger.error(error_msg)
-            raise ValueError(error_msg)
-        
-        logger.info("Ticker[0] %s", tickers[0])
-        logger.info("Ticker[0].marketPrice() %f", tickers[0].marketPrice())
-        current_price = tickers[0].marketPrice()
-        
-        if isnan(current_price) or current_price <= 0:
-            error_msg = f"Invalid or unavailable market price for {symbol}: {current_price}"
-            logger.error(error_msg)
-            raise ValueError(error_msg)
-            
-        # Calculate shares, round down to nearest whole share
-        shares = int(cash_per_position / current_price)
-        return shares
-    except Exception as e:
-        logger.exception(f"Error calculating shares to buy for {symbol}")
-        raise
 
 async def wait_for_order(trade: Trade, timeout=30):
     """Wait for an order to complete with timeout"""
@@ -395,7 +205,6 @@ async def wait_for_order(trade: Trade, timeout=30):
                 error_msg = f"Order did not complete within {timeout} seconds"
                 logger.error(error_msg)
                 raise TimeoutError(error_msg)
-            # FIX: Use asyncio.sleep instead of ib_client.ib.sleep
             await asyncio.sleep(1)
     except Exception as e:
         if not isinstance(e, TimeoutError):
@@ -410,38 +219,91 @@ def is_market_hours(current_time: datetime) -> bool:
     market_close = current_time.replace(hour=16, minute=0, second=0, microsecond=0)
     return market_open <= current_time <= market_close
 
-async def validate_contract(ib_client, symbol: str) -> Stock:
-    """Validate and qualify a stock contract"""
+@app.get("/daily_futures")
+async def do_futures_buys_for_day(ib: Annotated[IB, Depends(get_ib)]):
+    """Execute daily orders - sell non-leaders and prepare to buy new leaders"""
     try:
-        contract = Stock(symbol, 'SMART', 'USD')
-        qualified_contracts = await ib_client.ib.qualifyContractsAsync(contract)
-        if not qualified_contracts:
-            error_msg = f"Could not validate contract for {symbol}"
-            logger.error(error_msg)
-            raise ValueError(error_msg)
-        return qualified_contracts[0]
+        # Get gold futures data and calculate signals
+        gold_data = await future_data.get_futures_data(ib, symbol="GC", exchange="COMEX")
+        if gold_data.empty:
+            logger.warning("No gold futures data retrieved")
+            return {"positions_closed": [], "signals": [], "trades_executed": []}
+        print(gold_data)
+        
+        # # Get current leaders
+        position_df, _ = dow.calculate_equity_curve_dow_theory(trades_df=gold_data, initial_capital=50000, use_position_sizing=False)
+        
+        current_signal = position_df['signal'].iloc[-1]
+        
+        logger.log(logging.INFO, f"Current signal: {current_signal}")
+        
+        # Get current portfolio positions using the IBClient method
+        portfolio = await ib_client.get_positions()
+        
+        pos_mapping = {
+            pos.contract.symbol: {
+                'secType': pos.contract.secType,
+                'exchange': pos.contract.exchange,
+                'currency': pos.contract.currency,
+                'position': pos.position,
+                'avgCost': pos.avgCost
+            } for pos in portfolio
+        }
+        
+        print(pos_mapping)
+        gold = pos_mapping.get('GC', None)
+        if gold is not None:
+            print(current_signal == gold['position'])
+        else:
+            print("No gold position found")
+        if current_signal == 1:
+            # Go long
+            print("Long")
+            trade = future_data.place_continuous_futures_trade(ib, symbol="GC", exchange="COMEX", action="BUY", quantity=1)
+            print(trade)
+        elif current_signal == 0:
+            # Get out
+            print("Out")
+            trade = future_data.place_continuous_futures_trade(ib, symbol="GC", exchange="COMEX", action="SELL", quantity=1)
+            print(trade)
+        else: #current_signal == -1
+            # Go long
+            print("Short")
+
+        # # Initialize tracking of actions
+        # actions = {
+        #     "positions_closed": [],
+        #     "leaders_to_buy": leaders,
+        #     "buys_executed": []
+        # }
+
+        # # Close positions not in leaders list
+        # await dow.close_non_leader_positions(leaders, actions)
+        
+        # # Get available funds and execute buys
+        # await dow.execute_leader_buys(leaders, actions)
+        
+        # return actions
+        
     except Exception as e:
-        logger.exception(f"Error validating contract for {symbol}")
-        raise
+        dow.handle_exception("Error in daily execution", e)
+        raise HTTPException(
+            status_code=500, 
+            detail=str(e) if not DEBUG else f"{str(e)}\n\n{traceback.format_exc()}"
+        )
 
 @app.get("/daily")
-async def do_buys_for_day():
-    # At the beginning of your do_buys_for_day function
-    logger.warning(f"do_buys_for_day was called by: {traceback.format_stack()}")
-
+async def do_stock_buys_for_day(ib: Annotated[IB, Depends(get_ib)]):
     """Execute daily orders - sell non-leaders and prepare to buy new leaders"""
-    if not ib_client.ib.isConnected():
-        raise HTTPException(status_code=503, detail="Not connected to IB Gateway")
-
     try:
         # Get current leaders
-        leaders = await get_positive_leaders(ib_client.ib)
+        leaders = await get_positive_leaders(ib)
         if not leaders:
             logger.warning("No leaders found for today")
             return {"positions_closed": [], "leaders_to_buy": [], "buys_executed": []}
 
-        # Get current portfolio positions
-        portfolio = await ib_client.ib.reqPositionsAsync()
+        # Get current portfolio positions using the IBClient method
+        portfolio = await ib_client.get_positions()
         
         # Track actions taken
         actions = {
@@ -450,9 +312,12 @@ async def do_buys_for_day():
             "buys_executed": []
         }
 
-        # Get initial cash before any trades
-        initial_cash = await get_account_summary(ib_client.ib)
-        if initial_cash["AvailableFunds"] <= 0:
+        # Get initial account summary
+        account_summary = await ib_client.get_account_summary()
+        # Parse account summary to get available funds
+        available_funds = float(account_summary.get("AvailableFunds", 0))
+        
+        if available_funds <= 0:
             raise HTTPException(status_code=400, detail="Insufficient funds in account")
 
         # Process each position
@@ -461,16 +326,16 @@ async def do_buys_for_day():
                 symbol = position.contract.symbol
                 if symbol not in leaders:
                     try:
-                        # Validate contract first
-                        contract = await validate_contract(ib_client, symbol)
+                        # Validate contract first using IBClient method
+                        contract = await ib_client.validate_contract(symbol)
                         quantity = abs(position.position)
                         
                         # Create opposite order (sell if long, buy if short)
                         side = 'SELL' if position.position > 0 else 'BUY'
                         order = MarketOrder(side, quantity)
                         
-                        # Submit the order
-                        trade = ib_client.ib.placeOrder(contract, order)
+                        # Submit the order using IBClient method
+                        trade = await ib_client.place_order(contract, order)
 
                         # Wait for order with timeout
                         try:
@@ -504,8 +369,10 @@ async def do_buys_for_day():
             logger.info("No positions found to process")
 
         # Get available cash after closing positions
-        acct_summary = await get_account_summary(ib_client.ib)
-        available_cash = acct_summary["AvailableFunds"]
+        updated_account_summary = await ib_client.get_account_summary()
+        # Parse updated account summary to get available funds
+        available_cash = float(updated_account_summary.get("AvailableFunds", 0))
+        
         logger.info(f"Available cash: ${available_cash:,.2f}")
         
         # Calculate cash per position accounting for commissions
@@ -515,7 +382,7 @@ async def do_buys_for_day():
         
         # Only spend up to 30k
         adjusted_cash = min(30000, adjusted_cash)
-        
+
         if adjusted_cash <= 0:
             raise HTTPException(status_code=400, detail="Insufficient funds after accounting for commissions")
             
@@ -525,11 +392,11 @@ async def do_buys_for_day():
         # Place buy orders for each leader
         for symbol in leaders:
             try:
-                # Validate contract
-                contract = await validate_contract(ib_client, symbol)
+                # Validate contract using IBClient method
+                contract = await ib_client.validate_contract(symbol)
                 
                 # Calculate shares to buy
-                shares = await calculate_shares_to_buy(ib_client.ib, symbol, cash_per_position)
+                shares = await ib_client.calculate_shares_to_buy(symbol, cash_per_position)
                 
                 if shares <= 0:
                     logger.warning(f"Insufficient funds to buy {symbol} at current price")
@@ -537,9 +404,9 @@ async def do_buys_for_day():
                 
                 logger.info("Buying %d %s", shares, symbol)
                 
-                # Create and place buy order
+                # Create and place buy order using IBClient method
                 order = MarketOrder('BUY', shares)
-                trade = ib_client.ib.placeOrder(contract, order)
+                trade = await ib_client.place_order(contract, order)
                 
                 logger.info("Waiting for order for %s", symbol)
                 
@@ -588,17 +455,36 @@ async def do_buys_for_day():
             detail=str(e) if not DEBUG else f"{str(e)}\n\n{error_trace}"
         )
 
-# Remove the old start_server function and modify __main__ block
+# Set up proper signal handlers
+def setup_signal_handlers():
+    """Set up signal handlers for graceful shutdown"""
+    def shutdown_handler(signum, frame):
+        print(f"Received shutdown signal {signum}")
+        # Only set the stop flag, don't force exit
+        if uvicorn_server:
+            uvicorn_server.should_exit = True
+        
+    # Register signal handlers
+    signal.signal(signal.SIGINT, shutdown_handler)
+    signal.signal(signal.SIGTERM, shutdown_handler)
+
 if __name__ == '__main__':
     try:
+        # Setup signal handlers
+        setup_signal_handlers()
+
         port = int(os.getenv('PORT', '8080'))
-        uvicorn.run(
-            app,
-            host="0.0.0.0",
-            port=port,
-            log_level="info"
+        # Store the server instance to control shutdown
+        uvicorn_server = uvicorn.Server(
+            config=uvicorn.Config(
+                app=app,
+                host="0.0.0.0",
+                port=port,
+                log_level="info"
+            )
         )
+        # Use run instead of the simpler uvicorn.run
+        uvicorn_server.run()
     except Exception as e:
         print(f'Fatal error: {e}')
         print(f'Traceback: {traceback.format_exc()}')
-        # No need to call ib_client.stop() as the lifespan manager handles this
