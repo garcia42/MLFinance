@@ -15,6 +15,7 @@ from pytz import timezone
 import time
 from math import isnan
 from contextlib import asynccontextmanager
+# from trade_visualization import create_trade_visualization
 
 # Import your updated IBClient
 from ib_client import IBClient
@@ -222,71 +223,71 @@ def is_market_hours(current_time: datetime) -> bool:
 @app.get("/daily_futures")
 async def do_futures_buys_for_day(ib: Annotated[IB, Depends(get_ib)]):
     """Execute daily orders - sell non-leaders and prepare to buy new leaders"""
+    gold_symbol = "GC"
     try:
         # Get gold futures data and calculate signals
-        gold_data = await future_data.get_futures_data(ib, symbol="GC", exchange="COMEX")
+        gold_data = await ib_client.get_futures_data(symbol=gold_symbol, exchange="COMEX")
         if gold_data.empty:
             logger.warning("No gold futures data retrieved")
             return {"positions_closed": [], "signals": [], "trades_executed": []}
         print(gold_data)
         
+        # # Create visualization
+        # create_trade_visualization(gold_data, "Gold_data.csv")
+        
         # # Get current leaders
         position_df, _ = dow.calculate_equity_curve_dow_theory(trades_df=gold_data, initial_capital=50000, use_position_sizing=False)
+        
+        print(position_df['signal'])
         
         current_signal = position_df['signal'].iloc[-1]
         
         logger.log(logging.INFO, f"Current signal: {current_signal}")
         
+        front_contract = await ib_client.get_front_futures_contract(symbol=gold_symbol, exchange="COMEX")
+
         # Get current portfolio positions using the IBClient method
         portfolio = await ib_client.get_positions()
-        
-        pos_mapping = {
-            pos.contract.symbol: {
-                'secType': pos.contract.secType,
-                'exchange': pos.contract.exchange,
-                'currency': pos.contract.currency,
-                'position': pos.position,
-                'avgCost': pos.avgCost
-            } for pos in portfolio
-        }
-        
-        print(pos_mapping)
-        gold = pos_mapping.get('GC', None)
-        if gold is not None:
-            print(current_signal == gold['position'])
-        else:
-            print("No gold position found")
-        if current_signal == 1:
-            # Go long
-            print("Long")
-            trade = future_data.place_continuous_futures_trade(ib, symbol="GC", exchange="COMEX", action="BUY", quantity=1)
-            print(trade)
-        elif current_signal == 0:
-            # Get out
-            print("Out")
-            trade = future_data.place_continuous_futures_trade(ib, symbol="GC", exchange="COMEX", action="SELL", quantity=1)
-            print(trade)
-        else: #current_signal == -1
-            # Go long
-            print("Short")
 
-        # # Initialize tracking of actions
-        # actions = {
-        #     "positions_closed": [],
-        #     "leaders_to_buy": leaders,
-        #     "buys_executed": []
-        # }
+        # Identify any gold futures positions (could be in different contract months)
+        gold_positions = [pos for pos in portfolio if pos.contract.symbol == 'GC' and pos.contract.secType == 'FUT']
 
-        # # Close positions not in leaders list
-        # await dow.close_non_leader_positions(leaders, actions)
+        total_gold_position = sum(pos.position for pos in gold_positions)
+        print(f"Current signal: {current_signal}, Total gold position: {total_gold_position}")
+
+        if gold_positions:
+            # For existing positions that aren't in the front contract, close them first
+            for pos in gold_positions:
+                if pos.contract.lastTradeDateOrContractMonth != front_contract.lastTradeDateOrContractMonth:
+                    # Close the position in this contract
+                    action = "SELL" if pos.position > 0 else "BUY"
+                    quantity = abs(pos.position)
+                    trade = ib_client.place_futures_trade(contract=pos.contract, symbol=gold_symbol, action=action, quantity=quantity)
+                    print(f"Closing position in contract {pos.contract.lastTradeDateOrContractMonth}")
+
+        # Now handle the new position in the front contract
+        if total_gold_position > 0 and current_signal == -1:  # Net Long Position, Switch to Short
+            # Exit long and enter short
+            trade = ib_client.place_futures_trade(contract=front_contract, symbol=gold_symbol, action="SELL", quantity=abs(total_gold_position) + 1)
+            
+        elif total_gold_position < 0 and current_signal == 1:  # Net Short Position, Switch to Long
+            # Exit short and enter long
+            trade = ib_client.place_futures_trade(contract=front_contract, symbol=gold_symbol, action="BUY", quantity=abs(total_gold_position) + 1)
+            
+        elif total_gold_position == 0:  # No existing position
+            if current_signal == 1:  # Go long
+                trade = ib_client.place_futures_trade(contract=front_contract, symbol=gold_symbol, action="BUY", quantity=1)
+            elif current_signal == -1:  # Go short
+                trade = ib_client.place_futures_trade(contract=front_contract, symbol=gold_symbol, action="SELL", quantity=1)
         
-        # # Get available funds and execute buys
-        # await dow.execute_leader_buys(leaders, actions)
-        
-        # return actions
+        # Get current portfolio positions using the IBClient method
+        portfolio = await ib_client.get_positions()
+        print(f"Positions: {portfolio}")
         
     except Exception as e:
-        dow.handle_exception("Error in daily execution", e)
+        error_trace = traceback.format_exc()
+        logger.error(f"Error in daily execution: {e}")
+        logger.error(f"Traceback: {error_trace}")
         raise HTTPException(
             status_code=500, 
             detail=str(e) if not DEBUG else f"{str(e)}\n\n{traceback.format_exc()}"

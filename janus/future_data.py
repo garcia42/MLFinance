@@ -49,7 +49,7 @@ async def get_futures_data(ib: IB, symbol='GC', exchange='COMEX'):
         logger.exception(f"Error retrieving gold futures data: {e}")
         return pd.DataFrame()
 
-def place_continuous_futures_trade(ib: IB, symbol='GC', exchange='COMEX', 
+def place_futures_trade(ib: IB, symbol='GC', exchange='COMEX', 
                                         action='BUY', quantity=1) -> Trade:
     """Place a trade using the continuous futures contract"""
     try:

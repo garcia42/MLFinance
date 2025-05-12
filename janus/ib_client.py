@@ -1,7 +1,7 @@
 import threading
 import os
 from concurrent.futures import ThreadPoolExecutor
-from ib_insync import IB, Stock, Contract, MarketOrder, Trade
+from ib_insync import IB, Stock, Contract, MarketOrder, Trade, ContFuture, util
 import signal
 import asyncio
 import traceback
@@ -9,6 +9,7 @@ import sys
 import logging
 import functools
 import time
+import pandas as pd
 
 from fastapi import HTTPException
 
@@ -19,7 +20,8 @@ class IBClient:
         self.ib = IB()
         self.ib_config = {
             'host': os.getenv('IB_HOST', '127.0.0.1'),
-            'port': int(os.getenv('IB_PORT', '4001')),  # 4001 for live, 4002 for paper
+            # https://github.com/gnzsnz/ib-gateway-docker, 
+            'port': int(os.getenv('IB_PORT', '4004')),  # 4003 for live, 4004 for paper
             'clientId': int(os.getenv('IB_CLIENT_ID', '1')),
         }
         self.connection_lock = threading.Lock()
@@ -198,3 +200,124 @@ class IBClient:
         except Exception as e:
             logger.exception(f"Error validating contract for {symbol}")
             raise
+    
+    async def get_futures_data(self, symbol='GC', exchange='COMEX'):
+        """Fetch daily gold futures data for analysis using continuous contract"""
+        try:
+            # Create a continuous futures contract
+            # Use '@' symbol to indicate a continuous contract
+            gold_contract = ContFuture(symbol=symbol, exchange=exchange)
+            
+            # No need to qualify a continuous contract
+            
+            # Request daily historical data (1 year)
+            bars = await self.ib.reqHistoricalDataAsync(
+                gold_contract,
+                endDateTime='',  # Current time
+                durationStr='365 D',
+                barSizeSetting='1 day',
+                whatToShow='TRADES',
+                useRTH=True
+            )
+            
+            if not bars:
+                logger.warning("No historical data received for gold futures")
+                return pd.DataFrame()
+                
+            # Convert to DataFrame
+            df = util.df(bars)
+            
+            # Rename columns to match expected format
+            df = df.rename(columns={
+                'open': 'Open',
+                'high': 'High',
+                'low': 'Low',
+                'close': 'Close',
+                'volume': 'Volume'
+            })
+            
+            return df
+            
+        except Exception as e:
+            logger.exception(f"Error retrieving gold futures data: {e}")
+            return pd.DataFrame()
+
+    async def get_front_futures_contract(self, symbol, exchange, currency='USD') -> Contract:
+        """
+        Find the front futures contract based on trading volume.
+        
+        Args:
+            symbol (str): The futures symbol (e.g., 'ES', 'NQ', 'CL')
+            exchange (str): The exchange (e.g., 'CME', 'NYMEX')
+            currency (str): Currency for the contract (default: 'USD')
+            
+        Returns:
+            Contract: The front month futures contract with highest volume
+        """
+        try:
+            await self.ensure_connected()
+            
+            # Create a generic futures contract to get all expirations
+            contract = Contract()
+            contract.symbol = symbol
+            contract.secType = 'FUT'
+            contract.exchange = exchange
+            contract.currency = currency
+            
+            # Get matching contracts
+            contracts = await self.ib.reqContractDetailsAsync(contract)
+            
+            if not contracts:
+                error_msg = f"No futures contracts found for {symbol} on {exchange}"
+                logger.error(error_msg)
+                raise ValueError(error_msg)
+            
+            logger.info(f"Found {len(contracts)} futures contracts for {symbol}")
+            
+            # Extract the actual contracts from contract details
+            futures_contracts = [details.contract for details in contracts]
+            
+            # Request market data for each contract to get volume
+            tickers = await self.ib.reqTickersAsync(*futures_contracts)
+            
+            # Create a list of (contract, volume) tuples
+            contract_volumes = []
+            for ticker, contract in zip(tickers, futures_contracts):
+                volume = ticker.volume if hasattr(ticker, 'volume') and ticker.volume is not None else 0
+                contract_volumes.append((contract, volume))
+                logger.info(f"{contract.localSymbol}: Volume = {volume}")
+            
+            # Sort by volume (highest first)
+            contract_volumes.sort(key=lambda x: x[1], reverse=True)
+            
+            # Return the contract with highest volume
+            if not contract_volumes:
+                error_msg = f"Could not get volume data for {symbol} futures"
+                logger.error(error_msg)
+                raise ValueError(error_msg)
+            
+            front_contract = contract_volumes[0][0]
+            logger.info(f"Selected front contract {front_contract.localSymbol} with volume {contract_volumes[0][1]}")
+            
+            return front_contract
+            
+        except Exception as e:
+            logger.exception(f"Error finding front futures contract for {symbol}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    def place_futures_trade(self, contract: Contract, symbol='GC',
+                                        action='BUY', quantity=1) -> Trade:
+        """Place a trade using the continuous futures contract"""
+        try:
+            # Create market order
+            order = MarketOrder(action=action, totalQuantity=quantity)
+            
+            # Place the order
+            trade = self.ib.placeOrder(contract, order)
+            logger.info(f"Placed {action} order for {quantity} {symbol} continuous contract")
+            
+            return trade
+            
+        except Exception as e:
+            logger.exception(f"Error placing continuous futures trade: {e}")
+            return None

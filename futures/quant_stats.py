@@ -13,6 +13,7 @@ CONTRACT_UNITS = {
     'Natural_Gas_data.csv': 10000,        # 10,000 MMBtu per contract
     'Cotton.csv': 50000,                  # 50,000 lbs per contract
     'Gold_data.csv': 100,                 # 100 troy ounces per contract
+    'Crude_Oil_data.csv': 1000,           # 1,000 barrels per contract'
     'Coffee.csv': 37500,                  # 37,500 lbs per contract
     'Platinum_data.csv': 50,              # 50 troy ounces per contract
     'Soybean_data.csv': 5000,             # 5,000 bushels per contract
@@ -273,9 +274,10 @@ def main():
         # 'Natural_Gas_data.csv',
         # 'Cotton.csv',
         # 'Gold_data.csv',
-        # 'Coffee.csv',
+        # 'Crude_Oil_data.csv',
+        'Coffee.csv',
         # 'Platinum_data.csv',
-        'Soybean_data.csv',
+        # 'Soybean_data.csv',
         # 'US 5 Year T-Note Futures Historical Data.csv',
         # 'US 10 Year T-Note Futures Historical Data.csv',
     ]
@@ -285,9 +287,10 @@ def main():
         # 'Natural Gas',
         # 'Cotton',
         # 'Gold',
-        # 'Coffee',
+        # 'Crude Oil',
+        'Coffee',
         # 'Platinum',
-        'Soybean',
+        # 'Soybean',
         # 'US 5Y T-Note',
         # 'US 10Y T-Note',
     ]

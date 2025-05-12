@@ -120,7 +120,7 @@ def calculate_equity_curve_dow_theory(trades_df: pd.DataFrame, initial_capital=5
     
     # Close final position at the end of the data if still open
     if current_position is not None:
-        df.iloc[entry_date:i, df.columns.get_loc('signal')] = -1 if current_position == 'short' else 1
+        df.iloc[entry_date:len(df), df.columns.get_loc('signal')] = -1 if current_position == 'short' else 1
         final_price = df['Close'].iloc[-1]
         exit_date = df.index[-1]
         trade_profit = (final_price - entry_price) if current_position == 'long' else (entry_price - final_price)

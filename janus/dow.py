@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import traceback
 from scipy.signal import find_peaks
 pd.options.mode.chained_assignment = None  # default='warn'
 
@@ -120,7 +121,7 @@ def calculate_equity_curve_dow_theory(trades_df: pd.DataFrame, initial_capital=5
     
     # Close final position at the end of the data if still open
     if current_position is not None:
-        df.iloc[entry_date:i, df.columns.get_loc('signal')] = -1 if current_position == 'short' else 1
+        df.iloc[entry_date:len(df), df.columns.get_loc('signal')] = -1 if current_position == 'short' else 1
         final_price = df['Close'].iloc[-1]
         exit_date = df.index[-1]
         trade_profit = (final_price - entry_price) if current_position == 'long' else (entry_price - final_price)
@@ -174,162 +175,3 @@ def calculate_equity_curve_dow_theory(trades_df: pd.DataFrame, initial_capital=5
     df['equity'] = df['contract_equity']
 
     return df, trades_df
-
-async def close_non_leader_positions(leaders, actions):
-    """Close all positions that are not in the leaders list"""
-    # Get current portfolio positions
-    portfolio = await ib_client.get_positions()
-    
-    if not portfolio:
-        logger.info("No positions found to process")
-        return
-        
-    for position in portfolio:
-        symbol = position.contract.symbol
-        if symbol not in leaders:
-            try:
-                await close_position(position, symbol, actions)
-            except Exception as e:
-                logger.exception(f"Failed to close position for {symbol}")
-
-
-async def close_position(position, symbol, actions):
-    """Close a single position and record the action"""
-    # Validate contract first
-    contract = await ib_client.validate_contract(symbol)
-    quantity = abs(position.position)
-    
-    # Create opposite order (sell if long, buy if short)
-    side = 'SELL' if position.position > 0 else 'BUY'
-    order = MarketOrder(side, quantity)
-    
-    # Submit the order
-    trade = await ib_client.place_order(contract, order)
-
-    # Wait for order with timeout
-    try:
-        await wait_for_order(trade)
-    except TimeoutError as e:
-        logger.error(f"Order timeout for {symbol}: {e}")
-        return
-    except Exception as e:
-        logger.exception(f"Unexpected error waiting for order for {symbol}")
-        return
-
-    # Check for complete fill
-    if trade.orderStatus.filled != quantity:
-        logger.warning(f"Partial fill for {symbol}: {trade.orderStatus.filled}/{quantity}")
-    
-    # Record action
-    actions["positions_closed"].append({
-        "symbol": symbol,
-        "quantity": quantity,
-        "filled_quantity": trade.orderStatus.filled,
-        "side": side,
-        "status": trade.orderStatus.status,
-        "avg_fill_price": trade.orderStatus.avgFillPrice
-    })
-    
-    logger.info(f"Closed position for {symbol}: {trade.orderStatus.filled} shares {side} at {trade.orderStatus.avgFillPrice}")
-
-
-async def execute_leader_buys(leaders, actions):
-    """Execute buy orders for all leader symbols"""
-    # Get available funds
-    available_cash = await get_available_funds()
-    logger.info(f"Available cash: ${available_cash:,.2f}")
-    
-    # Calculate allocation per position
-    cash_per_position = calculate_allocation_per_position(available_cash, leaders)
-    if cash_per_position <= 0:
-        raise HTTPException(status_code=400, detail="Insufficient funds after accounting for commissions")
-    
-    logger.info(f"Allocating ${cash_per_position:,.2f} per position")
-    
-    # Place buy orders for each leader
-    for symbol in leaders:
-        try:
-            await buy_leader_position(symbol, cash_per_position, actions)
-        except Exception as e:
-            logger.exception(f"Error buying {symbol}")
-            actions["buys_executed"].append({
-                "symbol": symbol,
-                "error": str(e),
-                "traceback": traceback.format_exc() if DEBUG else None
-            })
-
-
-async def get_available_funds():
-    """Get the current available funds from account"""
-    account_summary = await ib_client.get_account_summary()
-    return float(account_summary.get("AvailableFunds", 0))
-
-
-def calculate_allocation_per_position(available_cash, leaders):
-    """Calculate how much cash to allocate per position"""
-    ESTIMATED_COMMISSION_PER_TRADE = 1.00  # Adjust based on your broker
-    total_commission = len(leaders) * ESTIMATED_COMMISSION_PER_TRADE
-    adjusted_cash = available_cash - total_commission
-    
-    # Only spend up to 30k
-    adjusted_cash = min(30000, adjusted_cash)
-    
-    if adjusted_cash <= 0:
-        return 0
-        
-    return adjusted_cash / len(leaders)
-
-
-async def buy_leader_position(symbol, cash_per_position, actions):
-    """Buy a single leader position and record the action"""
-    # Validate contract
-    contract = await ib_client.validate_contract(symbol)
-    
-    # Calculate shares to buy
-    shares = await ib_client.calculate_shares_to_buy(symbol, cash_per_position)
-    
-    if shares <= 0:
-        logger.warning(f"Insufficient funds to buy {symbol} at current price")
-        return
-    
-    logger.info("Buying %d %s", shares, symbol)
-    
-    # Create and place buy order
-    order = MarketOrder('BUY', shares)
-    trade = await ib_client.place_order(contract, order)
-    
-    logger.info("Waiting for order for %s", symbol)
-    
-    # Wait for order with timeout
-    try:
-        await wait_for_order(trade)
-        # Check result after wait_for_order
-        if trade.orderStatus.status == "Filled":
-            record_successful_buy(symbol, shares, trade, actions)
-        else:
-            logger.error(f"Order not fully filled for {symbol}: {trade.orderStatus.status}")
-            
-    except TimeoutError as e:
-        logger.error(f"Order timeout for {symbol}: {e}")
-    except Exception as e:
-        logger.exception(f"Unexpected error waiting for order for {symbol}")
-
-
-def record_successful_buy(symbol, shares, trade, actions):
-    """Record a successful buy execution"""
-    actions["buys_executed"].append({
-        "symbol": symbol,
-        "shares": shares,
-        "filled_shares": trade.orderStatus.filled,
-        "status": trade.orderStatus.status,
-        "avg_fill_price": trade.orderStatus.avgFillPrice
-    })
-    
-    logger.info(f"Bought {trade.orderStatus.filled} shares of {symbol} at {trade.orderStatus.avgFillPrice}")
-
-
-def handle_exception(message, exception):
-    """Handle and log exceptions"""
-    error_trace = traceback.format_exc()
-    logger.error(f"{message}: {exception}")
-    logger.error(f"Traceback: {error_trace}")

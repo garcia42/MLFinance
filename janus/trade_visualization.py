@@ -6,7 +6,16 @@ import os
 from dow import calculate_equity_curve_dow_theory
 from units import CONTRACT_UNITS
 
-def create_trade_visualization(df):
+def create_trade_visualization(df, file: str):
+    # Prepare data
+    df.columns = [col.capitalize() for col in df.columns]
+    df['Date'] = pd.to_datetime(df['Date'])
+    df['Open'] = df['Open'] * CONTRACT_UNITS[file]
+    df['High'] = df['High'] * CONTRACT_UNITS[file]
+    df['Low'] = df['Low'] * CONTRACT_UNITS[file]
+    df['Close'] = df['Close'] * CONTRACT_UNITS[file]
+    df.set_index('Date', inplace=True)
+
     """Create visualization showing price data with trade overlays"""
     # Calculate signals using Dow Theory
     equity_df, trades_df = calculate_equity_curve_dow_theory(df, initial_capital=50000)
@@ -17,7 +26,7 @@ def create_trade_visualization(df):
     # equity_df = equity_df[equity_df.index >= start_date]
     
     start_date = equity_df.index[0]
-    last_date = start_date + pd.DateOffset(months=32)
+    last_date = start_date + pd.DateOffset(months=3)
     equity_df = equity_df[equity_df.index <= last_date]
     
     # Prepare data for mplfinance
@@ -118,17 +127,8 @@ def main():
     csv_path = os.path.join(os.path.dirname(__file__), 'individual_data', file)
     df = pd.read_csv(csv_path)
     
-    # Prepare data
-    df.columns = [col.capitalize() for col in df.columns]
-    df['Date'] = pd.to_datetime(df['Date'])
-    df['Open'] = df['Open'] * CONTRACT_UNITS[file]
-    df['High'] = df['High'] * CONTRACT_UNITS[file]
-    df['Low'] = df['Low'] * CONTRACT_UNITS[file]
-    df['Close'] = df['Close'] * CONTRACT_UNITS[file]
-    df.set_index('Date', inplace=True)
-    
     # Create visualization
-    create_trade_visualization(df)
+    create_trade_visualization(df, file)
 
 if __name__ == "__main__":
     main()
