@@ -1,0 +1,9 @@
+,Jumbo,Slow Uptrend,trend_up_down_returns,forecast_ls,US 5 Year T-Note Futures Historical Data.csv,Gold_data.csv,Copper_data.csv,Lean Hogs.csv,Natural_Gas_data.csv
+Years of data,11,13,13,12,37,23,23,19,23
+Mean annual return,24.9%,26.9%,35.9%,-1.3%,0.4%,10.7%,10.6%,10.9%,15.1%
+Average drawdown,-42.3%,-42.8%,-52.4%,-38.6%,-5.8%,-14.3%,-24.8%,-28.4%,-66.6%
+Annualised standard deviation,40.7%,36.3%,47.9%,16.1%,4.4%,17.4%,27.0%,37.7%,59.4%
+Sharpe ratio,0.61,0.74,0.75,-0.08,0.09,0.61,0.39,0.29,0.25
+Skew,-0.36,-0.10,-0.13,-0.15,-2.79,-0.17,-0.02,0.24,0.94
+Lower tail,1.34,1.69,1.23,2.20,1.79,1.79,1.62,2.08,1.29
+Upper tail,1.02,1.56,1.11,1.76,1.44,1.41,1.49,2.71,1.68

@@ -1,7 +1,7 @@
 import threading
 import os
 from concurrent.futures import ThreadPoolExecutor
-from ib_insync import IB, Stock, Contract, MarketOrder, Trade, ContFuture, util
+from ib_insync import IB, Stock, Contract, MarketOrder, Trade, ContFuture, util, ExecutionFilter
 import signal
 import asyncio
 import traceback
@@ -321,3 +321,47 @@ class IBClient:
         except Exception as e:
             logger.exception(f"Error placing continuous futures trade: {e}")
             return None
+    
+    async def get_gold_futures_trades(self):
+        """
+        Retrieves execution reports for gold futures contracts.
+        Returns a list of trades in gold futures contracts matching GC or other gold symbols.
+        """
+        try:
+            # Ensure connection
+            await self.ensure_connected()
+            
+            # Create an empty execution filter
+            exec_filter = ExecutionFilter()
+            
+            # Execute in thread pool to avoid blocking
+            all_trades = await self.ib.reqExecutionsAsync(exec_filter)
+            
+            print(all_trades)
+            
+            # Filter for gold futures contracts
+            gold_futures_trades = []
+            
+            for trade in all_trades:
+                # Extract relevant information
+                symbol = trade.execution.symbol
+                sec_type = trade.contract.secType if hasattr(trade.contract, 'secType') else ''
+                exchange = trade.execution.exchange if hasattr(trade.execution, 'exchange') else ''
+                
+                # Check if it's a futures contract related to gold
+                if sec_type == 'FUT':
+                    # Common gold futures symbols: GC (COMEX), YG (mini), ZG (micro), etc.
+                    if (symbol in ['GC', 'YG', 'ZG', 'MGC'] or 
+                        'GOLD' in symbol.upper() or 
+                        (exchange == 'COMEX' and symbol == 'GC')):
+                        gold_futures_trades.append(trade)
+                    # Also check underlying if available
+                    elif hasattr(trade.contract, 'underlying') and trade.contract.underlying in ['GOLD', 'XAU']:
+                        gold_futures_trades.append(trade)
+            
+            logger.info(f"Found {len(gold_futures_trades)} gold futures trades")
+            return gold_futures_trades
+            
+        except Exception as e:
+            logger.exception(f"Error retrieving gold futures trades: {e}")
+            raise HTTPException(status_code=500, detail=f"Error retrieving gold futures trades: {str(e)}")

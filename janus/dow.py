@@ -4,7 +4,7 @@ import traceback
 from scipy.signal import find_peaks
 pd.options.mode.chained_assignment = None  # default='warn'
 
-def calculate_equity_curve_dow_theory(trades_df: pd.DataFrame, initial_capital=50000, 
+def calculate_equity_curve_dow_theory(trades_df: pd.DataFrame, initial_capital=50000,
                                       use_position_sizing=False, risk_percentage=2):
     """
     Calculate equity curve using trading method based on peaks and troughs identified with scipy
@@ -149,7 +149,7 @@ def calculate_equity_curve_dow_theory(trades_df: pd.DataFrame, initial_capital=5
         avg_win_profit_pct = trades_df.loc[trades_df['profit'] > 0, 'profit_pct'].mean()
         total_profit = trades_df['profit'].sum()
         profit_factor = abs(trades_df.loc[trades_df['profit'] > 0, 'profit'].sum() / 
-                          trades_df.loc[trades_df['profit'] < 0, 'profit'].sum()) if sum(trades_df['profit'] < 0) < 0 else float('inf')
+                          trades_df.loc[trades_df['profit'] < 0, 'profit'].sum())
         
         print("\nTrade Statistics:")
         print(f"Total trades: {len(trades_df)}")

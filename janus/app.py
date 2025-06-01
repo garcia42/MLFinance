@@ -293,6 +293,10 @@ async def do_futures_buys_for_day(ib: Annotated[IB, Depends(get_ib)]):
             detail=str(e) if not DEBUG else f"{str(e)}\n\n{traceback.format_exc()}"
         )
 
+@app.get("/trades")
+async def get_trades(ib: Annotated[IB, Depends(get_ib)]):
+    return await ib_client.get_gold_futures_trades()
+
 @app.get("/daily")
 async def do_stock_buys_for_day(ib: Annotated[IB, Depends(get_ib)]):
     """Execute daily orders - sell non-leaders and prepare to buy new leaders"""
