@@ -153,7 +153,7 @@ FUTURES_COMMISSION_MAP = {
         'contract_months': ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],  # Monthly
         'months_per_year': 12
     },
-    
+
     # ===== CURRENCY FUTURES =====
     '6E': {  # Euro FX
         'name': 'Euro FX',
@@ -210,7 +210,7 @@ FUTURES_COMMISSION_MAP = {
         'contract_months': ['Mar', 'Jun', 'Sep', 'Dec'],  # Quarterly (H, M, U, Z)
         'months_per_year': 4
     },
-    
+
     # ===== COMMODITY FUTURES =====
     'CL': {  # Crude Oil
         'name': 'Crude Oil',
@@ -300,7 +300,7 @@ FUTURES_COMMISSION_MAP = {
         'contract_months': ['Mar', 'May', 'Jul', 'Sep', 'Dec'],  # (H, K, N, U, Z)
         'months_per_year': 5
     },
-    
+
     # ===== AGRICULTURAL FUTURES =====
     'ZC': {  # Corn
         'name': 'Corn',
@@ -357,7 +357,7 @@ FUTURES_COMMISSION_MAP = {
         'contract_months': ['Feb', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Oct', 'Dec'],  # (G, J, K, M, N, Q, V, Z)
         'months_per_year': 8
     },
-    
+
     # ===== INTEREST RATE FUTURES =====
     'ZB': {  # 30-Year Treasury Bond
         'name': '30-Year Treasury Bond',
@@ -403,7 +403,7 @@ FUTURES_COMMISSION_MAP = {
         'contract_months': ['Mar', 'Jun', 'Sep', 'Dec'],  # Quarterly (H, M, U, Z)
         'months_per_year': 4
     },
-    
+
     # ===== CRYPTO FUTURES =====
     'BTC': {  # Bitcoin
         'name': 'Bitcoin',
@@ -529,22 +529,22 @@ def calculate_total_cost(symbol, contracts, entry_price, exit_price):
     details = get_futures_details(symbol)
     if not details:
         return None
-    
+
     commission_per_contract = details['commission']
     tick_size = details['tick_size']
     tick_value = details['tick_value']
-    
+
     # Calculate P&L
     price_diff = exit_price - entry_price
     ticks = price_diff / tick_size
     pnl = ticks * tick_value * contracts
-    
+
     # Calculate total commission (round trip)
     total_commission = commission_per_contract * contracts * 2  # Entry + Exit
-    
+
     # Net P&L after commission
     net_pnl = pnl - total_commission
-    
+
     return {
         'gross_pnl': pnl,
         'total_commission': total_commission,
@@ -557,17 +557,17 @@ def print_commission_summary():
     """Print a summary of all futures commissions"""
     print("FUTURES COMMISSION SUMMARY (Per Contract)")
     print("=" * 60)
-    
+
     # Group by commission rates
     commission_groups = {}
     all_futures = {**FUTURES_COMMISSION_MAP, **MICRO_FUTURES_MAP}
-    
+
     for symbol, details in all_futures.items():
         rate = details['commission']
         if rate not in commission_groups:
             commission_groups[rate] = []
         commission_groups[rate].append((symbol, details['name']))
-    
+
     for rate in sorted(commission_groups.keys()):
         print(f"\n${rate:.2f} per contract:")
         for symbol, name in commission_groups[rate]:
@@ -577,17 +577,17 @@ def print_contract_months_summary():
     """Print a summary of contract months for all futures"""
     print("\nCONTRACT MONTHS SUMMARY")
     print("=" * 80)
-    
+
     # Group by number of contract months per year
     months_groups = {}
     all_futures = {**FUTURES_COMMISSION_MAP, **MICRO_FUTURES_MAP}
-    
+
     for symbol, details in all_futures.items():
         months_per_year = details.get('months_per_year', 0)
         if months_per_year not in months_groups:
             months_groups[months_per_year] = []
         months_groups[months_per_year].append((symbol, details['name'], details.get('contract_months', [])))
-    
+
     for months_count in sorted(months_groups.keys(), reverse=True):
         print(f"\n{months_count} Contract Months Per Year:")
         print("-" * 40)
@@ -600,11 +600,11 @@ def print_contract_months_summary():
 if __name__ == "__main__":
     print_commission_summary()
     print_contract_months_summary()
-    
+
     print("\n" + "=" * 60)
     print("EXAMPLE CALCULATIONS")
     print("=" * 60)
-    
+
     # Example trade calculations
     examples = [
         ('ES', 1, 4200.00, 4210.00),
@@ -613,7 +613,7 @@ if __name__ == "__main__":
         ('GC', 1, 2000.0, 2025.0),
         ('MES', 10, 4200.00, 4210.00)  # Micro contract
     ]
-    
+
     for symbol, contracts, entry, exit in examples:
         result = calculate_total_cost(symbol, contracts, entry, exit)
         if result:

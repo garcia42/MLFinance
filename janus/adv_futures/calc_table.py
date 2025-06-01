@@ -13,7 +13,7 @@ def create_strategy_summary_table(
 ) -> Union[pd.DataFrame, Dict]:
     """
     Create a comprehensive summary statistics table for a trading strategy.
-    
+
     Parameters:
     -----------
     daily_returns : array-like
@@ -26,47 +26,47 @@ def create_strategy_summary_table(
         Risk-free rate for Sharpe ratio calculation (annualized)
     return_dataframe : bool, default=True
         If True, returns formatted DataFrame. If False, returns dictionary of values.
-    
+
     Returns:
     --------
     pd.DataFrame or dict
         Summary statistics table or dictionary containing all calculated metrics
-    
+
     Example:
     --------
     >>> daily_returns = np.random.normal(0.0005, 0.015, 10000)  # Simulated daily returns
     >>> summary = create_strategy_summary_table(daily_returns, "Buy and Hold", "S&P 500")
     >>> print(summary)
     """
-    
+
     # Convert to numpy array and remove NaN values
     daily_returns = np.array(daily_returns, dtype=float)
     daily_returns = daily_returns[~np.isnan(daily_returns)]
-    
+
     if len(daily_returns) == 0:
         raise ValueError("No valid daily returns data provided")
-    
+
     # Calculate years of data (assuming 256 trading days per year)
     years_of_data = len(daily_returns) / calc_stats.NUM_TRADING_DAYS_ANNUAL
-    
+
     # Basic return statistics
     mean_daily_return = np.mean(daily_returns)
     mean_annual_return_val = calc_stats.mean_annual_return(mean_daily_return)
-    
+
     # Volatility measures
     annualized_std = calc_stats.annual_std_dev(daily_returns)
-    
+
     # Risk measures
     avg_drawdown = calc_stats.average_drawdown(daily_returns)
-    
+
     # Sharpe ratio (using excess return over risk-free rate)
     daily_risk_free = risk_free_rate / calc_stats.NUM_TRADING_DAYS_ANNUAL
     excess_daily_return = mean_daily_return - daily_risk_free
     sharpe = calc_stats.sharpe_ratio(excess_daily_return * calc_stats.NUM_TRADING_DAYS_ANNUAL, annualized_std)
-    
+
     # Skewness
     returns_skew = skew(daily_returns)
-    
+
     # Fat tail measures
     try:
         tail_measures = calc_stats.measure_fat_tails(daily_returns)
@@ -76,7 +76,7 @@ def create_strategy_summary_table(
         # Fallback if fat tail calculation fails
         lower_tail_ratio = np.nan
         upper_tail_ratio = np.nan
-    
+
     # Create the summary dictionary
     summary_stats = {
         'Strategy': f"{strategy_name}, single contract",
@@ -90,14 +90,14 @@ def create_strategy_summary_table(
         'Lower tail': f"{lower_tail_ratio:.2f}" if not np.isnan(lower_tail_ratio) else "N/A",
         'Upper tail': f"{upper_tail_ratio:.2f}" if not np.isnan(upper_tail_ratio) else "N/A"
     }
-    
+
     if not return_dataframe:
         return summary_stats
-    
+
     # Create DataFrame for nice tabular display
     df = pd.DataFrame([summary_stats]).T
     df.columns = [f"{strategy_name} {instrument_name}"]
-    
+
     return df
 
 def create_multi_strategy_summary(
@@ -106,7 +106,7 @@ def create_multi_strategy_summary(
 ) -> pd.DataFrame:
     """
     Create a summary table comparing multiple trading strategies.
-    
+
     Parameters:
     -----------
     strategies_data : dict
@@ -115,12 +115,12 @@ def create_multi_strategy_summary(
         - 'instrument': str, name of instrument (optional)
     risk_free_rate : float, default=0.0
         Risk-free rate for Sharpe ratio calculation
-    
+
     Returns:
     --------
     pd.DataFrame
         Comparison table of all strategies
-    
+
     Example:
     --------
     >>> strategies = {
@@ -130,32 +130,32 @@ def create_multi_strategy_summary(
     >>> comparison = create_multi_strategy_summary(strategies)
     >>> print(comparison)
     """
-    
+
     all_summaries = {}
-    
+
     for strategy_name, data in strategies_data.items():
         returns = data['returns']
         instrument = data.get('instrument', 'Unknown')
-        
+
         # Get raw statistics (as dictionary)
         stats = create_strategy_summary_table(
-            returns, 
-            strategy_name, 
-            instrument, 
-            risk_free_rate, 
+            returns,
+            strategy_name,
+            instrument,
+            risk_free_rate,
             return_dataframe=False
         )
-        
+
         # Use strategy name as column header
         all_summaries[strategy_name] = stats
-    
+
     # Create combined DataFrame
     df = pd.DataFrame(all_summaries)
-    
+
     # Reorder rows to match the standard format
     row_order = [
         'Years of data',
-        'Mean annual return', 
+        'Mean annual return',
         'Average drawdown',
         'Annualised standard deviation',
         'Sharpe ratio',
@@ -163,9 +163,9 @@ def create_multi_strategy_summary(
         'Lower tail',
         'Upper tail'
     ]
-    
+
     # Only include rows that exist in the data
     existing_rows = [row for row in row_order if row in df.index]
     df = df.loc[existing_rows]
-    
+
     return df

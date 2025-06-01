@@ -4,82 +4,6 @@ import numpy as np
 from matplotlib.dates import DateFormatter
 import matplotlib.dates as mdates
 
-def plot_strategy_returns(strategies_data, title="Strategy Performance Comparison"):
-    """
-    Plot multiple strategy returns showing actual cumulative performance.
-    
-    Parameters:
-    -----------
-    strategies_data : dict
-        Keys are strategy labels, values are DataFrames with columns:
-        - 'Date': datetime index
-        - 'Daily_Return': daily returns
-        - 'Cumulative_Return': cumulative returns 
-        - 'Portfolio_Value': portfolio value over time
-    title : str
-        Plot title
-    """
-    
-    # Create figure and axis
-    fig, ax = plt.subplots(figsize=(12, 8))
-    
-    # Plot each strategy
-    for i, (label, returns_df) in enumerate(strategies_data.items()):
-        
-        # CRITICAL FIX: Use cumulative returns properly
-        if 'Cumulative_Return' in returns_df.columns:
-            # Convert cumulative returns to index starting at 100
-            strategy_index = (1 + returns_df['Cumulative_Return']) * 100
-        elif 'Portfolio_Value' in returns_df.columns:
-            # Convert portfolio value to index starting at 100  
-            strategy_index = (returns_df['Portfolio_Value'] / returns_df['Portfolio_Value'].iloc[0]) * 100
-        elif 'Daily_Return' in returns_df.columns:
-            # Calculate cumulative returns from daily returns
-            cumulative_returns = (1 + returns_df['Daily_Return']).cumprod() - 1
-            strategy_index = (1 + cumulative_returns) * 100
-        else:
-            raise ValueError(f"Cannot find return data in DataFrame for {label}")
-        
-        # Get default styling
-        color = ['black', 'gray', 'blue', 'red', 'green'][i % 5]
-        linestyle = ['-', '--', '-.', ':', '-'][i % 5]
-        
-        # Plot the strategy - this should show GROWTH, not decline
-        ax.plot(returns_df['Date'], strategy_index, 
-                label=label, linewidth=1.5, color=color, linestyle=linestyle)
-        
-        # Debug print to verify data
-        print(f"{label}:")
-        print(f"  Start index: {strategy_index.iloc[0]:.1f}")
-        print(f"  End index: {strategy_index.iloc[-1]:.1f}")
-        print(f"  Total return: {(strategy_index.iloc[-1]/strategy_index.iloc[0] - 1)*100:.1f}%")
-    
-    # Customize the plot
-    ax.set_xlabel('Date', fontsize=12)
-    ax.set_ylabel('Index (Base = 100)', fontsize=12)
-    ax.grid(True, alpha=0.3)
-    ax.legend(fontsize=11, loc='upper left')
-    
-    # Set y-axis to start at reasonable minimum (not 0 if strategies perform well)
-    y_min = min([df['Date'].map(lambda x: 100).min() for df in strategies_data.values()]) * 0.95
-    ax.set_ylim(y_min, None)
-    
-    # Format dates on x-axis
-    ax.tick_params(axis='both', which='major', labelsize=10)
-    
-    # Add title
-    if title:
-        ax.set_title(title, fontsize=14, fontweight='bold', pad=20)
-    
-    plt.tight_layout()
-    return fig, ax
-
-import pandas as pd
-import matplotlib.pyplot as plt
-import numpy as np
-from matplotlib.dates import DateFormatter
-import matplotlib.dates as mdates
-
 def plot_equity_curves_fixed(strategies_data, title="Portfolio Equity Curves", 
                             initial_capital=5000000, figsize=(14, 8)):
     """
@@ -220,14 +144,3 @@ def diagnose_data_direction(strategies_data):
         if not is_ascending and is_descending:
             print(f"  ⚠️  WARNING: Data appears to be in REVERSE chronological order!")
             print(f"  ⚠️  This will make profitable strategies look like losses!")
-
-
-# Quick fix function you can add to your main code
-def fix_data_order(df):
-    """
-    Fix data that's in reverse chronological order.
-    """
-    df_fixed = df.copy()
-    df_fixed['Date'] = pd.to_datetime(df_fixed['Date'])
-    df_fixed = df_fixed.sort_values('Date', ascending=True).reset_index(drop=True)
-    return df_fixed
