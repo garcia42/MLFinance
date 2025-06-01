@@ -56,23 +56,16 @@ def trend_forecast_strategy(price_data, fast_span=16, slow_span=64,
     # Calculate daily returns for volatility estimation
     daily_returns = prices.pct_change()
 
-    # Calculate rolling volatility (annualized percentage)
-    # Using 25-day rolling window for volatility estimation
-    vol_lookback = 25
-    daily_vol = daily_returns.rolling(window=vol_lookback).std()
-    annualized_vol = daily_vol * np.sqrt(252)  # Annualize
-
     # Convert to daily price volatility (sigma_p)
     # sigma_p = price * annualized_vol / 16
-    price_vol = prices * annualized_vol / 16
-
-    # Calculate raw forecast: EWMAC / sigma_p
-    raw_forecast = ewmac_raw / price_vol
+    return_vol = daily_returns.ewm(span=25).std()  # Use return volatility directly
+    raw_forecast = ewmac_raw / return_vol
 
     # Apply forecast scalar to get scaled forecast
     scaled_forecast = raw_forecast * forecast_scalar
 
     # Cap forecasts at maximum absolute value
+    scaled_forecast = raw_forecast * forecast_scalar
     capped_forecast = np.clip(scaled_forecast, -max_forecast, max_forecast)
 
     # Convert forecast to position (normalized by max_forecast for position sizing)
@@ -93,13 +86,21 @@ def trend_forecast_strategy(price_data, fast_span=16, slow_span=64,
         'Cumulative_Returns': (1 + strategy_returns).cumprod() - 1,
         'Buy_Hold_Returns': (1 + daily_returns).cumprod() - 1
     })
+    
+    print(f"EWMAC raw: {ewmac_raw.iloc[-1]:.6f}")
+    print(f"Raw forecast: {raw_forecast.iloc[-1]:.6f}")
+    print(f"After scalar (*1.9): {(scaled_forecast * 1.9).iloc[-1]:.6f}")
+    print(f"After capping (±20): {capped_forecast.iloc[-1]:.6f}")
+    print(f"EWMAC raw stats: mean={ewmac_raw.mean():.4f}, std={ewmac_raw.std():.4f}")
+    print(f"Raw forecast stats: mean={raw_forecast.mean():.4f}, std={raw_forecast.std():.4f}")
+    print(f"EWMAC raw mean: {ewmac_raw.mean():.6f}")  # Should be ~0
+    print(f"EWMAC raw std: {ewmac_raw.std():.6f}")
 
     # Add additional columns if requested
     if return_signals:
         results['EWMA_Fast'] = ewma_fast
         results['EWMA_Slow'] = ewma_slow
         results['EWMAC_Raw'] = ewmac_raw
-        results['Price_Vol'] = price_vol
         results['Raw_Forecast'] = raw_forecast
         results['Scaled_Forecast'] = scaled_forecast
         results['Capped_Forecast'] = capped_forecast

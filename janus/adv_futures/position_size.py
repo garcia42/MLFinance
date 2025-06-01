@@ -81,7 +81,7 @@ def calculate_position_size(
     # The original formula in systematic trading uses forecast/10 scaling
     # N = (forecast × capital × IDM × weight × τ) ÷ (10 × multiplier × price × σ)
 
-    numerator = abs(capped_forecast) * capital * idm * weight * tau
+    numerator = capped_forecast * capital * idm * weight * tau
     denominator = 10 * multiplier * price * annualized_vol  # ← RESTORE THE 10!
 
     if debug:
@@ -103,14 +103,7 @@ def calculate_position_size(
     if capped_forecast < 0:
         contracts_needed = -contracts_needed
 
-    # BETTER ROUNDING LOGIC - this was also an issue
-    if abs(contracts_needed) < 0.01:  # Very small position
-        contracts_rounded = 0  # Don't force to 1
-    elif abs(contracts_needed) < 1.0:
-        # For positions between 0.01 and 1.0, round to nearest integer
-        contracts_rounded = 1 if contracts_needed > 0 else -1
-    else:
-        contracts_rounded = round(contracts_needed)
+    contracts_rounded = round(contracts_needed)
 
     if debug:
         print(f"  contracts_needed (with direction): {contracts_needed:.6f}")

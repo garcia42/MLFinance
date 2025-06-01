@@ -130,12 +130,12 @@ class InstrumentSelectionAlgorithm:
                 if strategy_type == strategy.StrategyType.BUY_AND_HOLD:
                     df['Returns'] = df['Close'].pct_change().dropna()
                     # Set constant forecast for basic method
-                    df['Capped_Forecast'] = 20.0
+                    df['Capped_Forecast'] = 10.0
 
                 elif strategy_type == strategy.StrategyType.EWMAC:
                     df['Returns'] = strategy.ewmac_strategy(df)['Strategy_Returns']
                     # Set constant forecast for basic method
-                    df['Capped_Forecast'] = 20.0
+                    df['Capped_Forecast'] = 10.0
 
                 elif strategy_type == strategy.StrategyType.EWMAC_LONG_SHORT:
                     ewmac_results = strategy.ewmac_strategy(df, can_short=True, return_signals=True)
@@ -145,7 +145,7 @@ class InstrumentSelectionAlgorithm:
                     # EWMAC signal: +1 = long, -1 = short, 0 = flat
                     # Convert to forecast: +10 = long, -10 = short, 0 = flat
                     ewmac_signal = ewmac_results['Position'].fillna(0)
-                    df['Capped_Forecast'] = ewmac_signal * 20.0
+                    df['Capped_Forecast'] = ewmac_signal * 10.0
 
                 elif strategy_type == strategy.StrategyType.TREND_FORECAST:
                     # Calculate trend forecast results once here
@@ -1033,10 +1033,10 @@ def main():
     strategies = {}
 
     # Buy and Hold Strategy
-    selector_bh = InstrumentSelectionAlgorithm(capital=10000000, target_risk_pct=0.20)
-    results_bh = selector_bh.run_selection_algorithm(strategy_type=strategy.StrategyType.BUY_AND_HOLD)
-    returns_bh = selector_bh.generate_strategy_returns(start_date='2007-01-01')
-    strategies['buy_and_hold_returns'] = returns_bh.copy()
+    # selector_bh = InstrumentSelectionAlgorithm(capital=10000000, target_risk_pct=0.20)
+    # results_bh = selector_bh.run_selection_algorithm(strategy_type=strategy.StrategyType.BUY_AND_HOLD)
+    # returns_bh = selector_bh.generate_strategy_returns(start_date='2007-01-01')
+    # strategies['buy_and_hold_returns'] = returns_bh.copy()
 
     # # EWMAC Strategy
     # selector_ewmac = InstrumentSelectionAlgorithm(capital=10000000, target_risk_pct=0.20)
@@ -1044,17 +1044,17 @@ def main():
     # returns_ewmac = selector_ewmac.generate_strategy_returns(start_date='2007-01-01')
     # strategies['trend_up_returns'] = returns_ewmac.copy()
 
-    # # EWMAC Long/Short Strategy
+    # EWMAC Long/Short Strategy
     # selector_ls = InstrumentSelectionAlgorithm(capital=10000000, target_risk_pct=0.20)
     # results_ls = selector_ls.run_selection_algorithm(strategy_type=strategy.StrategyType.EWMAC_LONG_SHORT)
     # returns_ls = selector_ls.generate_strategy_returns(start_date='2007-01-01')
-    # strategies['trend_up_down_returns'] = returns_ls.copy()
+    # strategies['trend_long_and_short_returns'] = returns_ls.copy()
 
-    # # EWMAC Long/Short with forecast Strategy
-    # selector_forecast = InstrumentSelectionAlgorithm(capital=10000000, target_risk_pct=0.20)
-    # results_forecast = selector_forecast.run_selection_algorithm(strategy_type=strategy.StrategyType.TREND_FORECAST)
-    # returns_forecast = selector_forecast.generate_strategy_returns(start_date='2007-01-01')
-    # strategies['forecast_ls'] = returns_forecast.copy()
+    # EWMAC Long/Short with forecast Strategy
+    selector_forecast = InstrumentSelectionAlgorithm(capital=10000000, target_risk_pct=0.20)
+    results_forecast = selector_forecast.run_selection_algorithm(strategy_type=strategy.StrategyType.TREND_FORECAST)
+    returns_forecast = selector_forecast.generate_strategy_returns(start_date='2007-01-01')
+    strategies['forecast_ls'] = returns_forecast.copy()
 
     # Add this to your code to confirm the issue
     equity_curve.plot_equity_curves_fixed(strategies)
@@ -1066,10 +1066,10 @@ def main():
     # selector.plot_strategy_performance()
 
     multi = {
-        'Jumbo': {'returns': strategies['buy_and_hold_returns']['Daily_Return'], 'instrument': 'S&P 500'},
+        # 'Jumbo': {'returns': strategies['buy_and_hold_returns']['Daily_Return'], 'instrument': 'S&P 500'},
         # 'Slow Uptrend': {'returns': strategies['trend_up_returns']['Daily_Return'], 'instrument': 'S&P 500'},
-        # 'trend_up_down_returns': {'returns': strategies['trend_up_down_returns']['Daily_Return'], 'instrument': 'S&P 500'},
-        # 'forecast_ls': {'returns': strategies['forecast_ls']['Daily_Return'], 'instrument': 'S&P 500'}
+        # 'trend_long_and_short_returns': {'returns': strategies['trend_long_and_short_returns']['Daily_Return'], 'instrument': 'S&P 500'},
+        'forecast_ls': {'returns': strategies['forecast_ls']['Daily_Return'], 'instrument': 'S&P 500'}
     }
     median = ['US 5 Year T-Note Futures Historical Data.csv', 'Gold_data.csv', 'Copper_data.csv', 'Lean Hogs.csv', 'Natural_Gas_data.csv']
     for file in median:
