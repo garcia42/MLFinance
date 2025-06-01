@@ -19,3 +19,5 @@ yarn-error.log
 =*
 
 venv
+
+terraform_gcp/.terraform
